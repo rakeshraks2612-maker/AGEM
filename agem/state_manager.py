@@ -1,20 +1,17 @@
 # agem/state_manager.py
 import os
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from google.cloud import firestore
-
+from google.cloud.firestore import FieldFilter
 
 PROJECT_ID = "agem-505107"
 COLLECTION_NAME = "agem_optimization_history"
 
 
 class StateManager:
-    """Firestore-backed state persistence for AGEM.
-    
-    Remembers past optimizations so AGEM doesn't re-patch
-    the same resource twice. Provides audit trail.
-    """
+    """Firestore-backed state persistence for AGEM."""
     
     def __init__(self, project_id: Optional[str] = None):
         self.project_id = project_id or PROJECT_ID
@@ -43,29 +40,29 @@ class StateManager:
     def was_recently_optimized(self, resource_name: str, 
                                hours: int = 24) -> bool:
         """Check if a resource was optimized recently."""
-        cutoff = datetime.utcnow().timestamp() - (hours * 3600)
+        query = self.collection.where(
+            filter=FieldFilter("resource_name", "==", resource_name)
+        ).where(
+            filter=FieldFilter("status", "in", ["committed", "applied"])
+        )
         
-        docs = self.collection.where("resource_name", "==", resource_name)\
-                             .where("status", "in", ["committed", "applied"])\
-                             .stream()
-        
-        for doc in docs:
+        for doc in query.stream():
             data = doc.to_dict()
             ts = data.get("timestamp")
             if ts:
-                # Firestore timestamp to unix
                 ts_seconds = ts.timestamp() if hasattr(ts, 'timestamp') else 0
+                cutoff = datetime.utcnow().timestamp() - (hours * 3600)
                 if ts_seconds > cutoff:
                     return True
         return False
     
     def get_optimization_history(self, resource_name: Optional[str] = None,
                                   limit: int = 50) -> List[Dict[str, Any]]:
-        """Get optimization history, optionally filtered by resource."""
+        """Get optimization history."""
         query = self.collection.order_by("timestamp", direction=firestore.Query.DESCENDING)
         
         if resource_name:
-            query = query.where("resource_name", "==", resource_name)
+            query = query.where(filter=FieldFilter("resource_name", "==", resource_name))
         
         results = []
         for doc in query.limit(limit).stream():
@@ -75,17 +72,17 @@ class StateManager:
         return results
     
     def get_total_estimated_savings(self) -> Dict[str, Any]:
-        """Aggregate estimated savings across all optimizations."""
-        docs = self.collection.where("status", "in", ["committed", "applied"]).stream()
+        """Aggregate estimated savings."""
+        query = self.collection.where(
+            filter=FieldFilter("status", "in", ["committed", "applied"])
+        )
         
         total_savings = 0.0
         count = 0
         
-        for doc in docs:
+        for doc in query.stream():
             data = doc.to_dict()
             savings_str = data.get("estimated_savings", "")
-            # Extract dollar amount from strings like "~$50/month"
-            import re
             match = re.search(r'\$([\d,]+(?:\.\d+)?)', savings_str)
             if match:
                 total_savings += float(match.group(1).replace(',', ''))

@@ -22,10 +22,20 @@ class Patch:
 class Patcher:
     def __init__(self, api_key: Optional[str] = None):
         if api_key is None:
+            api_key = os.environ.get("GEMINI_API_KEY")
+        
+        if not api_key:
             import yaml
-            with open("config/config.yaml") as f:
-                config = yaml.safe_load(f)
-                api_key = config["gemini"]["api_key"]
+            try:
+                with open("config/config.yaml") as f:
+                    config = yaml.safe_load(f)
+                    api_key = config["gemini"]["api_key"]
+            except Exception:
+                pass
+        
+        if not api_key:
+            raise ValueError("No Gemini API key found. Set GEMINI_API_KEY env var or config/config.yaml")
+        
         self.client = genai.Client(api_key=api_key)
     
     def _build_prompt(self, resource: Dict[str, Any], score: Dict[str, Any]) -> str:
@@ -145,6 +155,9 @@ Patch:"""
                 data["estimated_savings"] = line.split(":", 1)[1].strip()
             elif line.startswith("ROLLBACK:"):
                 data["rollback"] = line.split(":", 1)[1].strip()
+            elif line.startswith("SAFETY_NOTES:"):
+                current_key = "safety_notes"
+                data["safety_notes"] = ""
             elif current_key and line and not line.startswith("PATCH_TYPE"):
                 data[current_key] += line + "\n"
         
