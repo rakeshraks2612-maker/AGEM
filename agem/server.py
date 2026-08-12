@@ -2,49 +2,84 @@ import os
 import time
 import json
 import traceback
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template_string
 
 app = Flask(__name__)
 
-# Detect Cloud Run environment
+# ── Environment ──────────────────────────────────────────────
 RUNNING_IN_CLOUD = os.environ.get("K_SERVICE") is not None
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-# --- Dynamic imports with fallbacks ---
-def safe_import(module_path, names):
-    """Try to import names from module, return {} if anything fails."""
+# ── Dynamic Module Loader ────────────────────────────────────
+MODULE_SIGNATURES = {
+    "profiler": {
+        "module": "agem.profiler",
+        "functions": ["discover_resources", "get_resources", "list_resources", "profile_resource", "get_metrics"]
+    },
+    "scorer": {
+        "module": "agem.scorer",
+        "functions": ["calculate_cws", "score_resource", "compute_cws", "get_score"]
+    },
+    "patcher": {
+        "module": "agem.patcher",
+        "functions": ["generate_patch", "create_patch", "make_patch", "get_patch"]
+    },
+    "validator": {
+        "module": "agem.validator",
+        "functions": ["validate_patch", "check_patch", "is_safe", "verify_patch"]
+    },
+    "git_committer": {
+        "module": "agem.git_committer",
+        "functions": ["commit_patch", "git_commit", "create_branch", "push_patch"]
+    },
+    "state_manager": {
+        "module": "agem.state_manager",
+        "functions": ["StateManager"]
+    },
+}
+
+loaded_modules = {}
+loaded_functions = {}
+
+for key, sig in MODULE_SIGNATURES.items():
+    mod_name = sig["module"]
+    func_names = sig["functions"]
     try:
-        mod = __import__(module_path, fromlist=names)
-        return {n: getattr(mod, n, None) for n in names}
-    except Exception:
-        return {n: None for n in names}
+        mod = __import__(mod_name, fromlist=func_names)
+        loaded_modules[key] = mod
+        found_funcs = {}
+        for fn in func_names:
+            obj = getattr(mod, fn, None)
+            if obj is not None:
+                found_funcs[fn] = obj
+        loaded_functions[key] = found_funcs
+    except Exception as e:
+        loaded_modules[key] = None
+        loaded_functions[key] = {"_error": str(e)}
 
-# Import AGEM modules dynamically
-profiler = safe_import("agem.profiler", ["discover_resources", "profile_resource", "get_resources"])
-scorer = safe_import("agem.scorer", ["calculate_cws", "score_resource", "compute_cws"])
-patcher = safe_import("agem.patcher", ["generate_patch", "create_patch", "make_patch"])
-validator = safe_import("agem.validator", ["validate_patch", "check_patch", "is_safe"])
-gitter = safe_import("agem.git_committer", ["commit_patch", "git_commit", "create_branch"])
-state_mod = safe_import("agem.state_manager", ["StateManager"])
+def resolve_func(module_key, preferred_names):
+    funcs = loaded_functions.get(module_key, {})
+    for name in preferred_names:
+        if name in funcs:
+            return funcs[name]
+    return None
 
-# Find the actual functions (whatever they're named)
-discover_resources = profiler.get("discover_resources") or profiler.get("get_resources")
-profile_resource = profiler.get("profile_resource")
-calculate_cws = scorer.get("calculate_cws") or scorer.get("score_resource") or scorer.get("compute_cws")
-generate_patch = patcher.get("generate_patch") or patcher.get("create_patch") or patcher.get("make_patch")
-validate_patch = validator.get("validate_patch") or validator.get("check_patch") or validator.get("is_safe")
-commit_patch = gitter.get("commit_patch") or gitter.get("git_commit") or gitter.get("create_branch")
-StateManager = state_mod.get("StateManager")
+discover_resources = resolve_func("profiler", ["discover_resources", "get_resources", "list_resources"])
+profile_resource   = resolve_func("profiler", ["profile_resource", "get_metrics", "fetch_metrics"])
+calculate_cws      = resolve_func("scorer", ["calculate_cws", "score_resource", "compute_cws", "get_score"])
+generate_patch     = resolve_func("patcher", ["generate_patch", "create_patch", "make_patch", "get_patch"])
+validate_patch     = resolve_func("validator", ["validate_patch", "check_patch", "is_safe", "verify_patch"])
+commit_patch       = resolve_func("git_committer", ["commit_patch", "git_commit", "create_branch", "push_patch"])
+StateManager       = resolve_func("state_manager", ["StateManager"])
 
-# Initialize state manager if available
 state_manager = None
 if StateManager:
     try:
         state_manager = StateManager()
-    except Exception:
-        pass
+    except Exception as e:
+        loaded_functions["state_manager"]["_init_error"] = str(e)
 
-# --- Demo data (fallback when real functions fail) ---
+# ── Demo Data ────────────────────────────────────────────────
 DEMO_RESOURCES = [
     {
         "name": "projects/agem-505107/instances/agem-demo-db",
@@ -73,30 +108,26 @@ DEMO_PATCH = {
     "rollback": "gcloud run services update agem-demo-service --min-instances=2 --memory=4Gi"
 }
 
+# ── Helpers ──────────────────────────────────────────────────
 def get_resource_name(resource):
-    """Safely extract name from resource dict or object."""
     if isinstance(resource, dict):
         return resource.get("display_name") or resource.get("name", "unknown").split("/")[-1]
     return getattr(resource, "name", "unknown")
 
 def get_resource_type(resource):
-    """Safely extract type from resource dict or object."""
     if isinstance(resource, dict):
         return resource.get("type") or resource.get("asset_type", "unknown").split("/")[-1]
     return getattr(resource, "type", "unknown")
 
 def safe_call(func, *args, **kwargs):
-    """Call a function safely, return (success, result_or_error)."""
     if func is None:
         return False, "Function not available"
     try:
-        result = func(*args, **kwargs)
-        return True, result
+        return True, func(*args, **kwargs)
     except Exception as e:
         return False, f"{type(e).__name__}: {str(e)}"
 
 def was_recently_optimized(name):
-    """Check Firestore, return False if anything fails."""
     if state_manager is None:
         return False
     try:
@@ -109,7 +140,6 @@ def was_recently_optimized(name):
         return False
 
 def record_optimization(name, res_type, cws_before, patch_action, savings, branch):
-    """Record to Firestore, silently fail."""
     if state_manager is None:
         return
     try:
@@ -123,7 +153,6 @@ def record_optimization(name, res_type, cws_before, patch_action, savings, branc
         pass
 
 def get_total_savings():
-    """Get total savings, return zeros if fails."""
     if state_manager is None:
         return {"total_estimated_monthly_savings": 207.12, "total_optimizations": 4}
     try:
@@ -134,6 +163,7 @@ def get_total_savings():
     except Exception:
         return {"total_estimated_monthly_savings": 0, "total_optimizations": 0}
 
+# ── Routes ───────────────────────────────────────────────────
 @app.route("/")
 def index():
     return jsonify({
@@ -147,8 +177,16 @@ def index():
             "validator": validate_patch is not None,
             "git_committer": commit_patch is not None,
             "state_manager": state_manager is not None
+        },
+        "available_functions": {
+            k: list(v.keys()) if isinstance(v, dict) else [] 
+            for k, v in loaded_functions.items()
         }
     })
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "healthy", "project": PROJECT_ID})
 
 @app.route("/scan", methods=["POST"])
 def scan():
@@ -159,7 +197,6 @@ def scan():
     errors = []
     used_demo = False
 
-    # --- Step 1: Discover resources ---
     resources = []
     if discover_resources:
         success, result = safe_call(discover_resources)
@@ -168,19 +205,16 @@ def scan():
         else:
             errors.append(f"discover_resources failed: {result}")
     else:
-        errors.append("discover_resources not found in profiler.py")
+        errors.append("discover_resources not found")
 
-    # Fallback to demo if discovery failed or returned nothing
     if not resources:
         resources = DEMO_RESOURCES
         used_demo = True
 
-    # --- Step 2: Process each resource ---
     for resource in resources:
         name = get_resource_name(resource)
         res_type = get_resource_type(resource)
 
-        # Check Firestore history
         if was_recently_optimized(name):
             skipped += 1
             results.append({
@@ -194,7 +228,6 @@ def scan():
         item = {"resource": name, "type": res_type}
 
         try:
-            # Profile
             metrics = None
             if profile_resource:
                 ok, metrics = safe_call(profile_resource, resource)
@@ -204,7 +237,6 @@ def scan():
             else:
                 metrics = DEMO_METRICS
 
-            # Score
             score_val = 0.5
             if calculate_cws:
                 ok, score = safe_call(calculate_cws, resource, metrics)
@@ -216,7 +248,6 @@ def scan():
             else:
                 score_val = 0.8 if "demo-service" in name else 0.46
 
-            # Generate patch
             patch = None
             if generate_patch:
                 ok, patch = safe_call(generate_patch, resource, metrics, score)
@@ -229,7 +260,6 @@ def scan():
             patch_action = patch.get("action") if isinstance(patch, dict) else getattr(patch, 'action', str(patch))
             patch_savings = patch.get("estimated_savings") if isinstance(patch, dict) else getattr(patch, 'estimated_savings', 'N/A')
 
-            # Validate
             validation = {"passed": True}
             if validate_patch:
                 ok, validation = safe_call(validate_patch, patch)
@@ -292,6 +322,95 @@ def scan():
         "errors": errors,
         "results": results,
     })
+
+@app.route("/history", methods=["GET"])
+def history():
+    if state_manager is None:
+        return jsonify({"error": "State manager not available", "project": PROJECT_ID}), 503
+    try:
+        if hasattr(state_manager, "get_recent_optimizations"):
+            docs = state_manager.get_recent_optimizations(limit=50)
+        elif hasattr(state_manager, "get_history"):
+            docs = state_manager.get_history(limit=50)
+        elif hasattr(state_manager, "collection"):
+            docs = [{"id": d.id, **d.to_dict()} for d in state_manager.collection.limit(50).stream()]
+        else:
+            docs = []
+        return jsonify({
+            "project": PROJECT_ID,
+            "count": len(docs),
+            "optimizations": docs
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+@app.route("/dashboard")
+def dashboard():
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>AGEM Dashboard</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0f0f23; color: #e0e0e0; }
+            h1 { color: #00ff88; border-bottom: 2px solid #00ff88; padding-bottom: 10px; }
+            .card { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 16px 0; border: 1px solid #2a2a4e; }
+            .metric { font-size: 2em; font-weight: bold; color: #00ff88; }
+            .label { color: #888; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+            button { background: #00ff88; color: #0f0f23; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1em; }
+            button:hover { background: #00cc6a; }
+            pre { background: #0a0a1a; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
+            .status-ok { color: #00ff88; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+        </style>
+    </head>
+    <body>
+        <h1>🔧 AGEM — Autonomous Google-powered Efficiency Manager</h1>
+        <div class="card">
+            <p class="label">Project</p>
+            <p style="font-size:1.2em;">{{ project }}</p>
+            <p class="label">Status</p>
+            <p class="status-ok">● Live on Google Cloud Run</p>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <p class="label">Total Savings</p>
+                <p class="metric" id="savings">—</p>
+            </div>
+            <div class="card">
+                <p class="label">Optimizations</p>
+                <p class="metric" id="opts">—</p>
+            </div>
+            <div class="card">
+                <p class="label">Mode</p>
+                <p class="metric" style="font-size:1.2em;">{{ mode }}</p>
+            </div>
+        </div>
+        <div class="card">
+            <button onclick="runScan()">🚀 Run Scan Now</button>
+            <button onclick="loadHistory()" style="margin-left:10px;background:#2a2a4e;color:#fff;">📜 View History</button>
+            <pre id="output">Click "Run Scan Now" to see AGEM in action...</pre>
+        </div>
+        <script>
+            async function runScan() {
+                document.getElementById("output").textContent = "Scanning...";
+                const res = await fetch("/scan", {method: "POST"});
+                const data = await res.json();
+                document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+                document.getElementById("savings").textContent = data.total_estimated_monthly_savings || "—";
+                document.getElementById("opts").textContent = data.total_optimizations_in_history || "—";
+            }
+            async function loadHistory() {
+                document.getElementById("output").textContent = "Loading history...";
+                const res = await fetch("/history");
+                const data = await res.json();
+                document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html, project=PROJECT_ID, mode="Cloud Run" if RUNNING_IN_CLOUD else "Local")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
