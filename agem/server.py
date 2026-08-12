@@ -3,6 +3,7 @@ import time
 import json
 import traceback
 import inspect
+from types import SimpleNamespace
 from flask import Flask, jsonify, render_template_string, request
 
 app = Flask(__name__)
@@ -10,7 +11,7 @@ app = Flask(__name__)
 RUNNING_IN_CLOUD = os.environ.get("K_SERVICE") is not None
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-# ── Smart Loader with Introspection ──────────────────────────
+# ── Smart Loader ─────────────────────────────────────────────
 def load_module(name, class_names):
     try:
         mod = __import__(name, fromlist=class_names)
@@ -55,14 +56,12 @@ validator_mod = load_module("agem.validator", ["Validator"])
 gitter_mod    = load_module("agem.git_committer", ["GitCommitter"])
 state_mod     = load_module("agem.state_manager", ["StateManager"])
 
-# Standalone functions from profiler
 try:
     import agem.profiler as _prof
     profiler_mod["functions"] = {"discover_resources": _prof.discover_resources} if hasattr(_prof, "discover_resources") else {}
 except Exception:
     profiler_mod["functions"] = {}
 
-# ── Resolve methods ──────────────────────────────────────────
 def find_method(mod_info, arg_counts, preferred_names=None):
     for cls_name, methods in mod_info.get("methods", {}).items():
         inst = mod_info["instances"].get(cls_name)
@@ -90,6 +89,36 @@ for inst in state_mod.get("instances", {}).values():
     state_manager = inst
     break
 
+# ── Type Normalizers ─────────────────────────────────────────
+def to_dict(obj):
+    """Convert dataclass/object to dict for modules that expect .get()."""
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
+    if hasattr(obj, "_asdict"):
+        return obj._asdict()
+    return {"value": obj}
+
+def to_namespace(obj):
+    """Convert dict to object with dot-access for modules that expect .after, .action, etc."""
+    if obj is None:
+        return SimpleNamespace(action="N/A", estimated_savings="N/A", after="", before="", patch_type="unknown")
+    if not isinstance(obj, dict):
+        return obj  # Already an object
+    return SimpleNamespace(**obj)
+
+def to_patch_namespace(obj):
+    """Convert patch dict to namespace with all expected attributes."""
+    if obj is None:
+        return SimpleNamespace(action="N/A", estimated_savings="N/A", after="", before="", patch_type="unknown", rollback="N/A")
+    if not isinstance(obj, dict):
+        return obj
+    # Ensure all expected fields exist
+    defaults = {"action": "N/A", "estimated_savings": "N/A", "after": "", "before": "", "patch_type": "unknown", "rollback": "N/A", "resource_name": "unknown", "resource_type": "unknown"}
+    defaults.update(obj)
+    return SimpleNamespace(**defaults)
+
 # ── Demo Data ────────────────────────────────────────────────
 DEMO_RESOURCES = [
     {"name": "projects/agem-505107/instances/agem-demo-db", "asset_type": "sqladmin.googleapis.com/Instance", "display_name": "agem-demo-db", "type": "cloud_sql"},
@@ -98,7 +127,7 @@ DEMO_RESOURCES = [
 DEMO_METRICS = {"cpu_utilization": 0.0428, "memory_utilization": 0.15, "disk_io": 120}
 DEMO_PATCH = {"action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "patch_type": "gcloud", "estimated_savings": "$78/month", "rollback": "gcloud run services update agem-demo-service --min-instances=2 --memory=4Gi"}
 
-# ── Helpers (NEVER return None for name) ─────────────────────
+# ── Helpers ──────────────────────────────────────────────────
 def get_resource_name(r):
     if isinstance(r, dict):
         name = r.get("display_name") or r.get("name", "unknown")
@@ -172,14 +201,6 @@ def index():
             "validator": validate_patch is not None,
             "git_committer": commit_patch is not None,
             "state_manager": state_manager is not None
-        },
-        "resolved_methods": {
-            "profiler": "discover_resources (function)",
-            "scorer": cws_method or "NOT FOUND",
-            "patcher": "generate_patch (instance)",
-            "validator": "validate (instance)",
-            "git_committer": "commit_patch (instance)",
-            "state_manager": "StateManager (instance)"
         }
     })
 
@@ -229,11 +250,10 @@ def scan():
             else:
                 metrics = DEMO_METRICS
 
-            # Score — scorer may take 1 or 2 args
+            # Score — try (resource, metrics) then (metrics)
             score_val = 0.5
             score_obj = None
             if calculate_cws:
-                # Try 2 args first (resource, metrics), then 1 arg (metrics)
                 ok, score = safe_call(calculate_cws, resource, metrics)
                 if not ok:
                     ok, score = safe_call(calculate_cws, metrics)
@@ -246,23 +266,28 @@ def scan():
             else:
                 score_val = 0.8 if "service" in name else 0.46
 
-            # Patch — takes (resource, score)
+            # Convert score to dict for patcher (it calls .get())
+            score_dict = to_dict(score_obj) if score_obj is not None else {"total": score_val}
+
+            # Patch — takes (resource, score_dict)
             patch = None
             if generate_patch:
-                ok, patch = safe_call(generate_patch, resource, score_obj or score_val)
+                ok, patch = safe_call(generate_patch, resource, score_dict)
                 if not ok:
                     item["patch_error"] = patch
                     patch = DEMO_PATCH
             else:
                 patch = DEMO_PATCH
 
-            patch_action = patch.get("action") if isinstance(patch, dict) else getattr(patch, 'action', str(patch))
-            patch_savings = patch.get("estimated_savings") if isinstance(patch, dict) else getattr(patch, 'estimated_savings', 'N/A')
+            # Convert patch to namespace for validator (it accesses .after, .action)
+            patch_ns = to_patch_namespace(patch)
+            patch_action = patch_ns.action
+            patch_savings = patch_ns.estimated_savings
 
-            # Validate — takes (patch, resource)
+            # Validate — takes (patch_ns, resource)
             validation = {"passed": True}
             if validate_patch:
-                ok, validation = safe_call(validate_patch, patch, resource)
+                ok, validation = safe_call(validate_patch, patch_ns, resource)
                 if not ok:
                     item["validation_error"] = validation
                     validation = {"passed": True}
@@ -283,9 +308,9 @@ def scan():
                     approved += 1
                 else:
                     if commit_patch:
-                        ok, commit = safe_call(commit_patch, patch)
+                        ok, commit = safe_call(commit_patch, patch_ns)
                         if not ok:
-                            ok, commit = safe_call(commit_patch, patch, name)
+                            ok, commit = safe_call(commit_patch, patch_ns, name)
                         if ok:
                             branch = getattr(commit, 'branch', 'unknown') if hasattr(commit, 'branch') else str(commit)
                             item["status"] = "approved"
