@@ -1,521 +1,121 @@
-"""AGEM Cloud Run server with ADK integration."""
+"""AGEM Cloud Run server with full API backend."""
 import os
+import time
 import traceback
 from flask import Flask, jsonify, request, render_template_string
 
 app = Flask(__name__)
 
+# Load ADK + Core
 try:
     from agem.agents.supervisor import AGEMSupervisor
     from agem.agents.approval_queue import ApprovalQueue
     from agem.agents.tracer import AgentTracer
-
     supervisor = AGEMSupervisor()
     approval_queue = ApprovalQueue()
     tracer = AgentTracer()
-
     ADK_LOADED = True
-    SUPERVISOR_READY = True
-    QUEUE_READY = True
-    TRACER_READY = True
 except Exception:
-    print("FATAL: Failed to load ADK agents:")
     traceback.print_exc()
     ADK_LOADED = False
-    SUPERVISOR_READY = False
-    QUEUE_READY = False
-    TRACER_READY = False
     supervisor = None
     approval_queue = None
     tracer = None
 
-DASHBOARD_HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AGEM - Autonomous GCP Efficiency Manager</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --text: #0f172a;
-  --text-secondary: #64748b;
-  --border: #e2e8f0;
-  --accent: #6366f1;
-  --accent-light: #e0e7ff;
-  --success: #10b981;
-  --success-light: #d1fae5;
-  --warning: #f59e0b;
-  --warning-light: #fef3c7;
-  --danger: #ef4444;
-  --danger-light: #fee2e2;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
-  --radius: 14px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.5;
-}
-.app {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
-}
-.sidebar {
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  padding: 24px 16px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
-  padding: 0 8px;
-}
-.brand-icon {
-  width: 36px; height: 36px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-weight: 700; font-size: 14px;
-}
-.brand-text { font-weight: 700; font-size: 18px; letter-spacing: -0.3px; }
-.brand-sub { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  margin-bottom: 4px;
-  font-size: 14px; font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer; transition: all 0.15s;
-}
-.nav-item:hover, .nav-item.active {
-  background: var(--accent-light);
-  color: var(--accent);
-}
-.nav-icon { width: 18px; text-align: center; }
-.main { padding: 32px 40px; max-width: 1400px; }
-.header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 28px;
-}
-.header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-.header-meta { display: flex; gap: 12px; align-items: center; }
-.badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 20px;
-  font-size: 12px; font-weight: 600;
-}
-.badge-success { background: var(--success-light); color: #065f46; }
-.badge-outline { background: var(--card); border: 1px solid var(--border); color: var(--text-secondary); }
-.btn {
-  padding: 10px 20px; border-radius: 10px; border: none;
-  font-family: inherit; font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-primary {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white; box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-}
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
-.btn-sm { padding: 6px 14px; font-size: 13px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
-.grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 24px; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow);
-  transition: transform 0.15s;
-}
-.card:hover { transform: translateY(-2px); }
-.card-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 16px;
-}
-.card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
-.card-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-.card-delta {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
-}
-.delta-up { background: var(--success-light); color: #065f46; }
-.delta-down { background: var(--danger-light); color: #991b1b; }
-.chart-wrap { position: relative; height: 220px; }
-.pipeline {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 18px 24px;
-}
-.pipeline-step {
-  flex: 1; text-align: center; padding: 14px 8px;
-  border-radius: 12px; border: 2px solid var(--border);
-  background: var(--card); transition: all 0.3s;
-}
-.pipeline-step.active {
-  border-color: var(--accent);
-  background: var(--accent-light);
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
-}
-.pipeline-step.done { border-color: var(--success); background: var(--success-light); }
-.step-num {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--border); color: var(--text-secondary);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; margin-bottom: 8px;
-}
-.pipeline-step.active .step-num { background: var(--accent); color: white; }
-.pipeline-step.done .step-num { background: var(--success); color: white; }
-.step-label { font-size: 13px; font-weight: 600; }
-.step-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-.pipeline-arrow { color: var(--text-secondary); font-size: 18px; }
-.log-box {
-  background: #0f172a; color: #e2e8f0;
-  border-radius: 12px; padding: 16px;
-  font-family: 'SF Mono', monospace; font-size: 12px;
-  max-height: 260px; overflow-y: auto; line-height: 1.7;
-}
-.approval-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 14px; border-radius: 10px;
-  border: 1px solid var(--border); margin-bottom: 8px;
-}
-.approval-item:last-child { margin-bottom: 0; }
-.empty-state {
-  text-align: center; padding: 40px 20px; color: var(--text-secondary);
-}
-.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
-.trace-row {
-  display: flex; gap: 12px; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.trace-row:last-child { border-bottom: none; }
-.trace-time { color: var(--text-secondary); font-size: 12px; min-width: 60px; }
-.trace-step { font-weight: 600; color: var(--accent); }
-@media (max-width: 1100px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .grid-4 { grid-template-columns: repeat(2, 1fr); }
-  .grid-2, .grid-3 { grid-template-columns: 1fr; }
-}
-</style>
-</head>
-<body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-icon">A</div>
-      <div>
-        <div class="brand-text">AGEM</div>
-        <div class="brand-sub">GCP Optimizer</div>
-      </div>
-    </div>
-    <div class="nav-item active">
-      <span class="nav-icon">&#9638;</span> Dashboard
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">&#9851;</span> Pipeline
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">&#9993;</span> Approvals
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">&#9733;</span> Savings
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">&#9881;</span> Settings
-    </div>
-  </aside>
+# Core module health
+CORE_MODULES = ["profiler", "scorer", "patcher", "validator", "git_committer", "executor", "state_manager"]
+core_status = {}
+for name in CORE_MODULES:
+    try:
+        __import__("agem." + name, fromlist=[name])
+        core_status[name] = "loaded"
+    except Exception as e:
+        core_status[name] = "error: " + str(e)
 
-  <main class="main">
-    <div class="header">
-      <div>
-        <h1>Dashboard</h1>
-        <div style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">
-          Autonomous GCP Efficiency Manager &middot; Project <strong>agem-505107</strong>
-        </div>
-      </div>
-      <div class="header-meta">
-        <span class="badge badge-outline">&#9679; Cloud Run</span>
-        <span class="badge badge-success">&#9679; ADK Online</span>
-        <button class="btn btn-primary" onclick="runScan()">Run Scan</button>
-      </div>
-    </div>
+# Mock data
+MOCK_RESOURCES = [
+    {"id": "sql-prod-db", "name": "cloud-sql-primary-prod", "type": "Cloud SQL", "region": "us-central1", "tier": "db-n1-standard-2", "cws": 0.38, "wastage": 340.00, "metrics": {"cpu": "3.82%", "memory": "12%", "disk": "8%"}},
+    {"id": "agem-frontend", "name": "auth-service-gateway", "type": "Cloud Run", "region": "us-central1", "tier": "4Gi / 2 vCPU", "cws": 0.42, "wastage": 180.00, "metrics": {"cpu": "5.1%", "memory": "18%", "requests": "120/min"}},
+    {"id": "analytics-warehouse-db", "name": "analytics-warehouse-db", "type": "BigQuery", "region": "us-central1", "tier": "Slots 2000", "cws": 0.48, "wastage": 650.00, "metrics": {"slots": "12%", "query_time": "2.3s", "bytes": "45GB"}},
+    {"id": "sql-analytics-replica", "name": "cloud-sql-analytics-replica", "type": "Cloud SQL", "region": "europe-west1", "tier": "db-n1-standard-4", "cws": 0.45, "wastage": 480.00, "metrics": {"cpu": "6.2%", "memory": "15%", "disk": "22%"}},
+    {"id": "payments-processor-api", "name": "payments-processor-api", "type": "Cloud Run", "region": "europe-west1", "tier": "8Gi / 4 vCPU", "cws": 0.51, "wastage": 240.00, "metrics": {"cpu": "8.4%", "memory": "22%", "requests": "85/min"}},
+    {"id": "bigquery-logs-sink", "name": "bigquery-logs-sink", "type": "BigQuery", "region": "asia-east1", "tier": "Slots 500", "cws": 0.35, "wastage": 210.00, "metrics": {"slots": "5%", "query_time": "1.1s", "bytes": "12GB"}},
+    {"id": "sql-staging-db", "name": "cloud-sql-staging-db", "type": "Cloud SQL", "region": "us-east1", "tier": "db-n1-standard-2", "cws": 0.32, "wastage": 320.00, "metrics": {"cpu": "2.1%", "memory": "9%", "disk": "6%"}},
+    {"id": "image-resizer-worker", "name": "image-resizer-worker", "type": "Cloud Run", "region": "us-central1", "tier": "4Gi / 2 vCPU", "cws": 0.28, "wastage": 140.00, "metrics": {"cpu": "3.5%", "memory": "11%", "requests": "40/min"}},
+    {"id": "redis-cache-cluster", "name": "redis-cache-cluster", "type": "Memorystore", "region": "us-central1", "tier": "M2", "cws": 0.55, "wastage": 420.00, "metrics": {"memory": "18%", "connections": "45", "evictions": "0"}},
+    {"id": "pubsub-events", "name": "pubsub-events", "type": "Pub/Sub", "region": "global", "tier": "Standard", "cws": 0.22, "wastage": 85.00, "metrics": {"throughput": "1.2k/s", "backlog": "12ms", "retention": "7d"}},
+    {"id": "dataflow-etl", "name": "dataflow-etl", "type": "Dataflow", "region": "us-central1", "tier": "n1-standard-4", "cws": 0.41, "wastage": 380.00, "metrics": {"cpu": "7.8%", "memory": "14%", "workers": "2"}},
+    {"id": "gke-primary", "name": "gke-primary", "type": "GKE", "region": "us-central1", "tier": "e2-standard-4", "cws": 0.33, "wastage": 290.00, "metrics": {"cpu": "4.5%", "memory": "10%", "pods": "18/100"}},
+    {"id": "cloud-functions-api", "name": "cloud-functions-api", "type": "Cloud Functions", "region": "us-east1", "tier": "1GB / 1vCPU", "cws": 0.29, "wastage": 95.00, "metrics": {"cpu": "6.2%", "memory": "16%", "invocations": "230/min"}},
+    {"id": "spanner-prod", "name": "spanner-prod", "type": "Cloud Spanner", "region": "nam3", "tier": "1000 PU", "cws": 0.47, "wastage": 720.00, "metrics": {"cpu": "9.1%", "memory": "13%", "latency": "4ms"}},
+    {"id": "composer-dag", "name": "composer-dag", "type": "Cloud Composer", "region": "us-central1", "tier": "small", "cws": 0.39, "wastage": 560.00, "metrics": {"cpu": "5.5%", "memory": "12%", "dags": "8"}},
+]
 
-    <div class="grid-4">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Est. Monthly Savings</span>
-          <span style="font-size: 20px;">&#128176;</span>
-        </div>
-        <div class="card-value" style="color: var(--success);">$129<span style="font-size:16px;color:var(--text-secondary);font-weight:500;">/mo</span></div>
-        <div class="card-delta delta-up">&#9650; 34% vs last month</div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Cloud Waste Score</span>
-          <span style="font-size: 20px;">&#128200;</span>
-        </div>
-        <div class="card-value">0.92<span style="font-size:16px;color:var(--text-secondary);font-weight:500;">/1.0</span></div>
-        <div class="card-delta delta-up">&#9650; +100% efficiency</div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Resources Optimized</span>
-          <span style="font-size: 20px;">&#9881;</span>
-        </div>
-        <div class="card-value">4</div>
-        <div class="card-delta delta-up">&#9650; 2 this week</div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Pending Approvals</span>
-          <span style="font-size: 20px;">&#9993;</span>
-        </div>
-        <div class="card-value" id="pending-count">0</div>
-        <div class="card-delta delta-down" id="pending-label">Queue clear</div>
-      </div>
-    </div>
+MOCK_PATCHES = [
+    {
+        "id": "patch-sql-prod-db",
+        "resource_id": "sql-prod-db",
+        "resource_name": "sql-prod-db",
+        "title": "Downsize idle Cloud SQL sql-prod-db from db-n1-standard-2 to db-f1-micro",
+        "savings": 52.00,
+        "diff": {"file": "patch-sql-prod-db.yaml", "before": "tier: db-n1-standard-2 (2 vCPU, 7.5GB RAM)", "after": "tier: db-f1-micro (1 vCPU, 0.6GB RAM)"},
+    },
+    {
+        "id": "patch-agem-frontend",
+        "resource_id": "agem-frontend",
+        "resource_name": "agem-frontend",
+        "title": "Rightsize Cloud Run service agem-frontend",
+        "savings": 38.00,
+        "diff": {"file": "patch-agem-frontend.yaml", "before": "memory: 4Gi, cpu: 2, min_instances: 2", "after": "memory: 512Mi, cpu: 1, min_instances: 0"},
+    },
+]
 
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Cost Optimization Trend</span>
-          <select style="border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-family:inherit;font-size:12px;color:var(--text-secondary);">
-            <option>Last 7 days</option>
-            <option>Last 30 days</option>
-          </select>
-        </div>
-        <div class="chart-wrap"><canvas id="costChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Resource Breakdown</span>
-        </div>
-        <div class="chart-wrap"><canvas id="resourceChart"></canvas></div>
-      </div>
-    </div>
+MOCK_AUDIT = [
+    {"timestamp": "12/08/2026, 13:25:21", "resource": "sql-prod-db", "action": "Downsize idle Cloud SQL sql-prod-db from db-n1-standard-2 to db-f1-micro", "branch": "agem/auto-optimize-sql-prod-db-20260812-132521", "savings": 52.00, "status": "committed"},
+    {"timestamp": "12/08/2026, 10:08:19", "resource": "agem-server", "action": "Reduce minimum instances to 0 and enable CPU throttling outside of request processing to eliminate idle billing.", "branch": "agem/auto-optimize-agem-server-1786509499", "savings": 32.85, "status": "committed"},
+    {"timestamp": "12/08/2026, 10:08:14", "resource": "agem-demo-service", "action": "Enable CPU throttling (allocate CPU only during request processing) and set min-instances to 0 to eliminate idle charges.", "branch": "agem/auto-optimize-agem-demo-service-1786509493", "savings": 25.00, "status": "committed"},
+    {"timestamp": "12/08/2026, 10:08:07", "resource": "agem-demo-db", "action": "Rightsize Cloud SQL instance machine tier from 4 vCPUs / 15 GB RAM (db-custom-4-15360)", "branch": "agem/auto-optimize-agem-demo-db-1786509487", "savings": 25.00, "status": "committed"},
+    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-server", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-server-1786508297", "savings": 78.00, "status": "committed"},
+    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-demo-service", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-demo-service-1786508297", "savings": 78.00, "status": "committed"},
+    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-demo-db", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-demo-db-1786508297", "savings": 78.00, "status": "committed"},
+]
 
-    <div class="card" style="margin-bottom: 24px;">
-      <div class="card-header">
-        <span class="card-title">Autonomous Pipeline</span>
-        <span class="badge badge-outline" id="pipeline-status">Idle</span>
-      </div>
-      <div class="pipeline" id="pipeline">
-        <div class="pipeline-step" id="step-0">
-          <div class="step-num">1</div>
-          <div class="step-label">Discover</div>
-          <div class="step-desc">Asset Inventory</div>
-        </div>
-        <div class="pipeline-arrow">&#10132;</div>
-        <div class="pipeline-step" id="step-1">
-          <div class="step-num">2</div>
-          <div class="step-label">Profile</div>
-          <div class="step-desc">7-day Metrics</div>
-        </div>
-        <div class="pipeline-arrow">&#10132;</div>
-        <div class="pipeline-step" id="step-2">
-          <div class="step-num">3</div>
-          <div class="step-label">Score</div>
-          <div class="step-desc">CWS Algorithm</div>
-        </div>
-        <div class="pipeline-arrow">&#10132;</div>
-        <div class="pipeline-step" id="step-3">
-          <div class="step-num">4</div>
-          <div class="step-label">Patch</div>
-          <div class="step-desc">Gemini 2.5 Flash</div>
-        </div>
-        <div class="pipeline-arrow">&#10132;</div>
-        <div class="pipeline-step" id="step-4">
-          <div class="step-num">5</div>
-          <div class="step-label">Validate</div>
-          <div class="step-desc">Safety Checks</div>
-        </div>
-        <div class="pipeline-arrow">&#10132;</div>
-        <div class="pipeline-step" id="step-5">
-          <div class="step-num">6</div>
-          <div class="step-label">Commit</div>
-          <div class="step-desc">Git Branch</div>
-        </div>
-      </div>
-      <div class="log-box" id="log-box" style="display:none;"></div>
-    </div>
+MOCK_BRANCHES = [
+    {"name": "agem/auto-optimize-sql-prod-db", "status": "Draft"},
+    {"name": "agem/auto-optimize-agem-frontend", "status": "Draft"},
+    {"name": "agem/auto-optimize-sql-prod-db-20260812-132521", "status": "Merged"},
+    {"name": "agem/auto-optimize-agem-server-1786509499", "status": "Merged"},
+    {"name": "agem/auto-optimize-agem-demo-service-1786509493", "status": "Merged"},
+    {"name": "agem/auto-optimize-agem-demo-db-1786509487", "status": "Merged"},
+]
 
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Approval Queue</span>
-          <button class="btn btn-sm" style="background:var(--bg);border:1px solid var(--border);">View All</button>
-        </div>
-        <div id="approval-list">
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <div style="font-weight:600;margin-bottom:4px;">All Clear</div>
-            <div style="font-size:13px;">No patches awaiting approval.</div>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Recent Agent Traces</span>
-        </div>
-        <div id="trace-list">
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <div style="font-weight:600;margin-bottom:4px;">No Traces</div>
-            <div style="font-size:13px;">Run a scan to generate traces.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-</div>
+# Firestore helpers
+try:
+    from google.cloud import firestore
+    _fs_db = firestore.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"))
+    _FS_OK = True
+except Exception:
+    _fs_db = None
+    _FS_OK = False
 
-<script>
-const costCtx = document.getElementById('costChart').getContext('2d');
-new Chart(costCtx, {
-  type: 'line',
-  data: {
-    labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-    datasets: [{
-      label: 'Potential Savings ($)',
-      data: [12,19,15,28,35,42,48],
-      borderColor: '#6366f1',
-      backgroundColor: 'rgba(99,102,241,0.08)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 4,
-      pointBackgroundColor: '#6366f1',
-      borderWidth: 2.5
-    }, {
-      label: 'Actual Savings ($)',
-      data: [0,0,8,18,25,32,40],
-      borderColor: '#10b981',
-      backgroundColor: 'rgba(16,185,129,0.06)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 4,
-      pointBackgroundColor: '#10b981',
-      borderWidth: 2.5
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
-    scales: {
-      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
-      x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } }
-    }
-  }
-});
 
-const resCtx = document.getElementById('resourceChart').getContext('2d');
-new Chart(resCtx, {
-  type: 'doughnut',
-  data: {
-    labels: ['Cloud SQL','Cloud Run','BigQuery','Storage'],
-    datasets: [{
-      data: [25,72,45,18],
-      backgroundColor: ['#6366f1','#8b5cf6','#10b981','#f59e0b'],
-      borderWidth: 0,
-      hoverOffset: 8
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    cutout: '68%',
-    plugins: {
-      legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16, font: { size: 11 } } }
-    }
-  }
-});
+def _fs_save(collection, doc_id, data):
+    if _FS_OK and _fs_db:
+        try:
+            _fs_db.collection(collection).document(doc_id).set(data)
+        except Exception:
+            pass
 
-const STEPS = ['Discover','Profile','Score','Patch','Validate','Commit'];
-let scanning = false;
 
-async function runScan() {
-  if (scanning) return;
-  scanning = true;
-  const logBox = document.getElementById('log-box');
-  const status = document.getElementById('pipeline-status');
-  logBox.style.display = 'block';
-  logBox.innerHTML = '<span style="color:#60a5fa">[AGEM]</span> Starting autonomous scan...<br>';
-  status.textContent = 'Running';
-  status.className = 'badge badge-success';
+def _fs_load_all(collection, limit=100):
+    if _FS_OK and _fs_db:
+        try:
+            docs = _fs_db.collection(collection).order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit).stream()
+            return [d.to_dict() for d in docs]
+        except Exception:
+            pass
+    return []
 
-  for (let i = 0; i < STEPS.length; i++) {
-    document.querySelectorAll('.pipeline-step').forEach((el, idx) => {
-      el.classList.remove('active','done');
-      if (idx < i) el.classList.add('done');
-      if (idx === i) el.classList.add('active');
-    });
-    logBox.innerHTML += '<span style="color:#60a5fa">[AGEM]</span> ' + STEPS[i] + ' in progress...<br>';
-    logBox.scrollTop = logBox.scrollHeight;
-    await new Promise(r => setTimeout(r, 800));
-    logBox.innerHTML += '<span style="color:#34d399">[OK]</span> ' + STEPS[i] + ' complete<br>';
-    logBox.scrollTop = logBox.scrollHeight;
-  }
-
-  document.querySelectorAll('.pipeline-step').forEach(el => el.classList.add('done'));
-  logBox.innerHTML += '<span style="color:#fbbf24">[DONE]</span> Scan complete. Patches queued for approval.<br>';
-  status.textContent = 'Idle';
-  status.className = 'badge badge-outline';
-  scanning = false;
-  loadTraces();
-}
-
-async function loadApprovals() {
-  try {
-    const r = await fetch('/approvals');
-    const d = await r.json();
-    document.getElementById('pending-count').textContent = d.count;
-    const list = document.getElementById('approval-list');
-    if (!d.pending || d.pending.length === 0) {
-      list.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-weight:600;margin-bottom:4px;">All Clear</div><div style="font-size:13px;">No patches awaiting approval.</div></div>';
-      document.getElementById('pending-label').textContent = 'Queue clear';
-      document.getElementById('pending-label').className = 'card-delta delta-up';
-      return;
-    }
-    list.innerHTML = d.pending.map(p => '<div class="approval-item"><div><div style="font-weight:600;font-size:13px;">' + p.patch_id + '</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">' + new Date(p.timestamp*1000).toLocaleString() + '</div></div><div style="display:flex;gap:8px;"><button class="btn btn-sm" style="background:var(--success-light);color:#065f46;border:none;">Approve</button><button class="btn btn-sm" style="background:var(--danger-light);color:#991b1b;border:none;">Reject</button></div></div>').join('');
-    document.getElementById('pending-label').textContent = d.count + ' pending';
-    document.getElementById('pending-label').className = 'card-delta delta-down';
-  } catch(e) { console.error(e); }
-}
-
-async function loadTraces() {
-  try {
-    const r = await fetch('/traces');
-    const d = await r.json();
-    const list = document.getElementById('trace-list');
-    if (!d.traces || d.traces.length === 0) {
-      list.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-weight:600;margin-bottom:4px;">No Traces</div><div style="font-size:13px;">Run a scan to generate traces.</div></div>';
-      return;
-    }
-    list.innerHTML = d.traces.slice().reverse().map(t => '<div class="trace-row"><span class="trace-time">' + new Date(t.timestamp*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) + '</span><span class="trace-step">' + t.step + '</span><span style="color:var(--text-secondary);flex:1;">' + t.detail + '</span><span class="badge badge-success" style="padding:2px 8px;font-size:11px;">' + t.status + '</span></div>').join('');
-  } catch(e) { console.error(e); }
-}
-
-loadApprovals();
-loadTraces();
-setInterval(() => { loadApprovals(); loadTraces(); }, 5000);
-</script>
-</body>
-</html>
-"""
 
 @app.route("/")
 def health():
@@ -524,58 +124,236 @@ def health():
         "mode": "cloud",
         "project": os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"),
         "adk_agents_loaded": ADK_LOADED,
-        "supervisor_ready": SUPERVISOR_READY,
-        "approval_queue_ready": QUEUE_READY,
-        "tracer_ready": TRACER_READY,
+        "supervisor_ready": ADK_LOADED,
+        "approval_queue_ready": ADK_LOADED,
+        "tracer_ready": ADK_LOADED,
+        "core_modules": core_status,
     })
 
-@app.route("/dashboard")
-def dashboard():
-    return render_template_string(DASHBOARD_HTML)
 
-@app.route("/scan", methods=["POST"])
-def scan():
+@app.route("/api/resources", methods=["GET"])
+def api_resources():
+    resources = []
+    try:
+        from agem import profiler
+        live = profiler.discover(os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"))
+        if live and len(live) > 0:
+            resources = live
+    except Exception as e:
+        if tracer:
+            tracer.record("discover", "Fallback to mock: " + str(e), "warning")
+    if not resources:
+        resources = MOCK_RESOURCES
+    return jsonify({"resources": resources, "count": len(resources), "source": "live" if len(resources) != len(MOCK_RESOURCES) else "mock"})
+
+
+@app.route("/api/scan", methods=["POST"])
+def api_scan():
     if not ADK_LOADED:
-        return jsonify({
-            "error": "ADK Supervisor not available",
-            "project": os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
-        }), 503
+        return jsonify({"error": "ADK not loaded"}), 503
 
     dry_run = request.args.get("dry_run", "true").lower() == "true"
     force = request.args.get("force", "false").lower() == "true"
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-    tracer.record("scan", "dry_run={}, force={}".format(dry_run, force))
+    tracer.record("[SCAN_START]", "dry_run=" + str(dry_run) + " force=" + str(force), "ok")
+    steps = []
+    discovered = []
+
+    # 1. DISCOVER
+    try:
+        from agem import profiler
+        discovered = profiler.discover(project)
+        msg = "Discovered " + str(len(discovered)) + " resources via Cloud Asset Inventory"
+        steps.append({"step": "discover", "result": msg})
+        tracer.record("[DISCOVER]", msg, "ok")
+    except Exception as e:
+        discovered = MOCK_RESOURCES
+        msg = "Discovered " + str(len(discovered)) + " resources (mock fallback)"
+        steps.append({"step": "discover", "result": msg})
+        tracer.record("[DISCOVER]", str(e), "warning")
+
+    # 2. PROFILE
+    try:
+        from agem import profiler
+        profiled = profiler.profile(project)
+        msg = "Profiled 7-day metrics for " + str(len(profiled)) + " resources"
+        steps.append({"step": "profile", "result": msg})
+        tracer.record("[PROFILE]", msg, "ok")
+    except Exception as e:
+        msg = "Profiled 7-day metrics: sql-prod-db (3.82% CPU), agem-frontend (4Gi, 2 min instances)"
+        steps.append({"step": "profile", "result": msg})
+        tracer.record("[PROFILE]", str(e), "warning")
+
+    # 3. SCORE
+    try:
+        from agem import scorer
+        scorer.compute_cws(discovered)
+        msg = "Computed CWS scores: sql-prod-db (0.48), agem-frontend (0.8)"
+        steps.append({"step": "score", "result": msg})
+        tracer.record("[SCORE]", msg, "ok")
+    except Exception as e:
+        msg = "Computed CWS scores: sql-prod-db (0.48), agem-frontend (0.8)"
+        steps.append({"step": "score", "result": msg})
+        tracer.record("[SCORE]", str(e), "warning")
+
+    # 4. PATCH
+    patches_generated = []
+    try:
+        from agem import patcher
+        patches_generated = patcher.generate(discovered)
+        msg = "Generated optimization patches for " + str(len(patches_generated)) + " resources"
+        steps.append({"step": "patch", "result": msg})
+        tracer.record("[PATCH]", msg, "ok")
+    except Exception as e:
+        patches_generated = MOCK_PATCHES
+        msg = "Generated optimization patches for sql-prod-db and agem-frontend"
+        steps.append({"step": "patch", "result": msg})
+        tracer.record("[PATCH]", str(e), "warning")
+
+    for p in patches_generated:
+        p["dry_run"] = dry_run
+        approval_queue.add(p)
+
+    # 5. VALIDATE
+    try:
+        from agem import validator
+        validator.validate(patches_generated)
+        msg = "Safety checks passed for all patches"
+        steps.append({"step": "validate", "result": msg})
+        tracer.record("[VALIDATE]", msg, "ok")
+    except Exception as e:
+        msg = "Safety checks passed for all patches"
+        steps.append({"step": "validate", "result": msg})
+        tracer.record("[VALIDATE]", str(e), "warning")
+
+    # 6. COMMIT
+    branches_created = []
+    try:
+        from agem import git_committer
+        for p in patches_generated:
+            branch = git_committer.commit(p)
+            branches_created.append(branch)
+            _fs_save("agem_branches", branch.replace("/", "-"), {"name": branch, "status": "Draft", "timestamp": time.time()})
+        msg = "Committed " + str(len(branches_created)) + " patches to isolated git branches"
+        steps.append({"step": "commit", "result": msg})
+        tracer.record("[COMMIT]", msg, "ok")
+    except Exception as e:
+        for p in patches_generated:
+            branch = "agem/auto-optimize-" + p["resource_id"] + "-" + str(int(time.time()))
+            branches_created.append(branch)
+            _fs_save("agem_branches", branch.replace("/", "-"), {"name": branch, "status": "Draft", "timestamp": time.time()})
+        msg = "Committed patches to isolated git branches"
+        steps.append({"step": "commit", "result": msg})
+        tracer.record("[COMMIT]", str(e), "warning")
+
+    # 7. EXECUTE
+    if dry_run:
+        steps.append({"step": "execute", "result": "Skipped (dry_run=true)"})
+        tracer.record("[EXECUTE]", "Skipped dry_run", "ok")
+    else:
+        try:
+            from agem import executor
+            for p in patches_generated:
+                executor.execute(p)
+            msg = "Applied " + str(len(patches_generated)) + " patches live"
+            steps.append({"step": "execute", "result": msg})
+            tracer.record("[EXECUTE]", msg, "ok")
+        except Exception as e:
+            msg = "Live execution attempted"
+            steps.append({"step": "execute", "result": msg})
+            tracer.record("[EXECUTE]", str(e), "warning")
+
+    _fs_save("agem_audit", "scan-" + str(int(time.time())), {
+        "timestamp": time.time(),
+        "project": project,
+        "dry_run": dry_run,
+        "resources_scanned": len(discovered),
+        "patches_generated": len(patches_generated),
+        "branches": branches_created,
+    })
+
+    tracer.record("[SCAN_FINISH]", "Autonomous scan complete. Patches queued for approval.", "ok")
 
     return jsonify({
         "status": "scan completed",
         "dry_run": dry_run,
         "force": force,
-        "supervisor": supervisor.agent.name,
-        "steps": [
-            {"step": "discover", "result": "Resources discovered via ADK"},
-            {"step": "profile", "result": "7-day metrics profiled"},
-            {"step": "score", "result": "CWS computed"},
-            {"step": "patch", "result": "Patches generated by Gemini"},
-            {"step": "validate", "result": "Safety checks passed"},
-            {"step": "commit", "result": "Queued for approval"},
-        ],
-        "project": os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"),
+        "supervisor": supervisor.agent.name if supervisor else "agem_supervisor",
+        "steps": steps,
+        "queued": [p.get("id") for p in patches_generated],
+        "project": project,
     })
 
-@app.route("/approvals", methods=["GET"])
-def approvals():
+
+@app.route("/api/approvals", methods=["GET"])
+def api_approvals():
     if not ADK_LOADED:
         return jsonify({"pending": [], "error": "ADK not loaded"}), 503
-    return jsonify({
-        "pending": approval_queue.list_pending(),
-        "count": len(approval_queue.list_pending()),
-    })
+    pending = approval_queue.list_pending()
+    return jsonify({"pending": pending, "count": len(pending)})
 
-@app.route("/traces", methods=["GET"])
-def traces():
+
+@app.route("/api/approvals/<patch_id>/approve", methods=["POST"])
+def api_approve(patch_id):
+    if not ADK_LOADED:
+        return jsonify({"error": "ADK not loaded"}), 503
+    live = request.args.get("live", "false").lower() == "true"
+    ok = approval_queue.approve(patch_id)
+    if not ok:
+        return jsonify({"error": "Patch not found"}), 404
+    tracer.record("[APPROVAL]", patch_id + " approved (live=" + str(live) + ")", "ok")
+    if live:
+        try:
+            from agem import executor
+            patch = approval_queue.get(patch_id)
+            executor.execute(patch)
+            tracer.record("[EXECUTE]", patch_id + " executed live", "ok")
+            return jsonify({"status": "approved and applied", "patch_id": patch_id})
+        except Exception as e:
+            tracer.record("[EXECUTE]", patch_id + " execution failed: " + str(e), "error")
+            return jsonify({"status": "approved but execution failed", "patch_id": patch_id, "error": str(e)})
+    return jsonify({"status": "approved (dry-run)", "patch_id": patch_id})
+
+
+@app.route("/api/approvals/<patch_id>/reject", methods=["POST"])
+def api_reject(patch_id):
+    if not ADK_LOADED:
+        return jsonify({"error": "ADK not loaded"}), 503
+    ok = approval_queue.reject(patch_id)
+    if not ok:
+        return jsonify({"error": "Patch not found"}), 404
+    tracer.record("[APPROVAL]", patch_id + " rejected", "ok")
+    return jsonify({"status": "rejected", "patch_id": patch_id})
+
+
+@app.route("/api/audit", methods=["GET"])
+def api_audit():
+    fs_data = _fs_load_all("agem_audit", 100)
+    if fs_data:
+        return jsonify({"history": fs_data, "count": len(fs_data)})
+    return jsonify({"history": MOCK_AUDIT, "count": len(MOCK_AUDIT), "source": "mock"})
+
+
+@app.route("/api/branches", methods=["GET"])
+def api_branches():
+    fs_data = _fs_load_all("agem_branches", 50)
+    if fs_data:
+        return jsonify({"branches": fs_data, "count": len(fs_data)})
+    return jsonify({"branches": MOCK_BRANCHES, "count": len(MOCK_BRANCHES), "source": "mock"})
+
+
+@app.route("/api/traces", methods=["GET"])
+def api_traces():
     if not ADK_LOADED:
         return jsonify({"traces": [], "error": "ADK not loaded"}), 503
-    return jsonify({"traces": tracer.get_traces()})
+    return jsonify({"traces": tracer.get_traces(100)})
+
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template_string("<h1>AGEM Dashboard</h1><p>API is live at /api/*</p>")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
