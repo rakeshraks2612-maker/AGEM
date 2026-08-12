@@ -2,7 +2,8 @@ import os
 import time
 import json
 import traceback
-from flask import Flask, jsonify, render_template_string
+import inspect
+from flask import Flask, jsonify, render_template_string, request
 
 app = Flask(__name__)
 
@@ -10,74 +11,81 @@ app = Flask(__name__)
 RUNNING_IN_CLOUD = os.environ.get("K_SERVICE") is not None
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-# ── Dynamic Module Loader ────────────────────────────────────
-MODULE_SIGNATURES = {
-    "profiler": {
-        "module": "agem.profiler",
-        "functions": ["discover_resources", "get_resources", "list_resources", "profile_resource", "get_metrics"]
-    },
-    "scorer": {
-        "module": "agem.scorer",
-        "functions": ["calculate_cws", "score_resource", "compute_cws", "get_score"]
-    },
-    "patcher": {
-        "module": "agem.patcher",
-        "functions": ["generate_patch", "create_patch", "make_patch", "get_patch"]
-    },
-    "validator": {
-        "module": "agem.validator",
-        "functions": ["validate_patch", "check_patch", "is_safe", "verify_patch"]
-    },
-    "git_committer": {
-        "module": "agem.git_committer",
-        "functions": ["commit_patch", "git_commit", "create_branch", "push_patch"]
-    },
-    "state_manager": {
-        "module": "agem.state_manager",
-        "functions": ["StateManager"]
-    },
-}
-
-loaded_modules = {}
-loaded_functions = {}
-
-for key, sig in MODULE_SIGNATURES.items():
-    mod_name = sig["module"]
-    func_names = sig["functions"]
+# ── Smart Class/Function Loader ──────────────────────────────
+def load_module(name, class_names, func_names):
+    """Load a module and try to instantiate classes or find functions."""
     try:
-        mod = __import__(mod_name, fromlist=func_names)
-        loaded_modules[key] = mod
-        found_funcs = {}
+        mod = __import__(name, fromlist=class_names + func_names)
+        result = {"module": mod, "classes": {}, "functions": {}, "instances": {}, "errors": []}
+        
+        # Find classes
+        for cn in class_names:
+            cls = getattr(mod, cn, None)
+            if cls and inspect.isclass(cls):
+                result["classes"][cn] = cls
+        
+        # Find functions
         for fn in func_names:
-            obj = getattr(mod, fn, None)
-            if obj is not None:
-                found_funcs[fn] = obj
-        loaded_functions[key] = found_funcs
+            func = getattr(mod, fn, None)
+            if func and inspect.isfunction(func):
+                result["functions"][fn] = func
+        
+        # Try to instantiate classes (no args first, then with config)
+        for cn, cls in result["classes"].items():
+            try:
+                instance = cls()
+                result["instances"][cn] = instance
+            except TypeError:
+                try:
+                    instance = cls(config={})
+                    result["instances"][cn] = instance
+                except Exception as e:
+                    result["errors"].append(f"{cn} init failed: {e}")
+            except Exception as e:
+                result["errors"].append(f"{cn} init failed: {e}")
+        
+        return result
     except Exception as e:
-        loaded_modules[key] = None
-        loaded_functions[key] = {"_error": str(e)}
+        return {"module": None, "classes": {}, "functions": {}, "instances": {}, "errors": [str(e)]}
 
-def resolve_func(module_key, preferred_names):
-    funcs = loaded_functions.get(module_key, {})
-    for name in preferred_names:
-        if name in funcs:
-            return funcs[name]
+# Load all AGEM modules
+profiler_mod   = load_module("agem.profiler",   ["Profiler"],   ["discover_resources", "get_resources", "list_resources", "profile_resource"])
+scorer_mod     = load_module("agem.scorer",     ["Scorer"],     ["calculate_cws", "score_resource", "compute_cws"])
+patcher_mod    = load_module("agem.patcher",    ["Patcher"],    ["generate_patch", "create_patch", "make_patch"])
+validator_mod  = load_module("agem.validator",  ["Validator"],  ["validate_patch", "check_patch", "is_safe"])
+gitter_mod     = load_module("agem.git_committer", ["GitCommitter"], ["commit_patch", "git_commit", "create_branch"])
+state_mod      = load_module("agem.state_manager", ["StateManager"], ["get_state"])
+
+# ── Resolve callable methods from instances or functions ─────
+def find_method(modules, method_names):
+    """Look for a method across all loaded instances and functions."""
+    # Check instances first
+    for mod in modules:
+        for inst in mod.get("instances", {}).values():
+            for mn in method_names:
+                if hasattr(inst, mn):
+                    method = getattr(inst, mn)
+                    if callable(method):
+                        return method
+    # Then check raw functions
+    for mod in modules:
+        for fn in method_names:
+            if fn in mod.get("functions", {}):
+                return mod["functions"][fn]
     return None
 
-discover_resources = resolve_func("profiler", ["discover_resources", "get_resources", "list_resources"])
-profile_resource   = resolve_func("profiler", ["profile_resource", "get_metrics", "fetch_metrics"])
-calculate_cws      = resolve_func("scorer", ["calculate_cws", "score_resource", "compute_cws", "get_score"])
-generate_patch     = resolve_func("patcher", ["generate_patch", "create_patch", "make_patch", "get_patch"])
-validate_patch     = resolve_func("validator", ["validate_patch", "check_patch", "is_safe", "verify_patch"])
-commit_patch       = resolve_func("git_committer", ["commit_patch", "git_commit", "create_branch", "push_patch"])
-StateManager       = resolve_func("state_manager", ["StateManager"])
+discover_resources = find_method([profiler_mod], ["discover_resources", "get_resources", "list_resources", "fetch"])
+profile_resource   = find_method([profiler_mod], ["profile_resource", "get_metrics", "fetch_metrics", "profile"])
+calculate_cws      = find_method([scorer_mod],   ["calculate_cws", "score", "compute", "calculate", "get_score"])
+generate_patch     = find_method([patcher_mod],  ["generate_patch", "generate", "create_patch", "create", "make_patch", "patch"])
+validate_patch     = find_method([validator_mod],["validate_patch", "validate", "check_patch", "check", "is_safe", "verify"])
+commit_patch       = find_method([gitter_mod],   ["commit_patch", "commit", "create_branch", "push", "git_commit"])
 
+# State manager
 state_manager = None
-if StateManager:
-    try:
-        state_manager = StateManager()
-    except Exception as e:
-        loaded_functions["state_manager"]["_init_error"] = str(e)
+for inst in state_mod.get("instances", {}).values():
+    state_manager = inst
+    break
 
 # ── Demo Data ────────────────────────────────────────────────
 DEMO_RESOURCES = [
@@ -135,6 +143,9 @@ def was_recently_optimized(name):
             return state_manager.was_recently_optimized(name, hours=24)
         if hasattr(state_manager, "is_recently_optimized"):
             return state_manager.is_recently_optimized(name)
+        if hasattr(state_manager, "collection"):
+            docs = list(state_manager.collection.where("resource_name", "==", name).limit(1).stream())
+            return len(docs) > 0
         return False
     except Exception:
         return False
@@ -149,6 +160,13 @@ def record_optimization(name, res_type, cws_before, patch_action, savings, branc
                 cws_before=cws_before, patch_action=patch_action,
                 estimated_savings=savings, branch_name=branch, status="committed"
             )
+        elif hasattr(state_manager, "collection"):
+            state_manager.collection.add({
+                "resource_name": name, "resource_type": res_type,
+                "cws_before": cws_before, "patch_action": patch_action,
+                "estimated_savings": savings, "branch_name": branch,
+                "status": "committed", "timestamp": time.time()
+            })
     except Exception:
         pass
 
@@ -178,9 +196,13 @@ def index():
             "git_committer": commit_patch is not None,
             "state_manager": state_manager is not None
         },
-        "available_functions": {
-            k: list(v.keys()) if isinstance(v, dict) else [] 
-            for k, v in loaded_functions.items()
+        "module_details": {
+            "profiler": {"classes": list(profiler_mod.get("classes", {}).keys()), "instances": list(profiler_mod.get("instances", {}).keys()), "functions": list(profiler_mod.get("functions", {}).keys()), "errors": profiler_mod.get("errors", [])},
+            "scorer": {"classes": list(scorer_mod.get("classes", {}).keys()), "instances": list(scorer_mod.get("instances", {}).keys()), "functions": list(scorer_mod.get("functions", {}).keys()), "errors": scorer_mod.get("errors", [])},
+            "patcher": {"classes": list(patcher_mod.get("classes", {}).keys()), "instances": list(patcher_mod.get("instances", {}).keys()), "functions": list(patcher_mod.get("functions", {}).keys()), "errors": patcher_mod.get("errors", [])},
+            "validator": {"classes": list(validator_mod.get("classes", {}).keys()), "instances": list(validator_mod.get("instances", {}).keys()), "functions": list(validator_mod.get("functions", {}).keys()), "errors": validator_mod.get("errors", [])},
+            "git_committer": {"classes": list(gitter_mod.get("classes", {}).keys()), "instances": list(gitter_mod.get("instances", {}).keys()), "functions": list(gitter_mod.get("functions", {}).keys()), "errors": gitter_mod.get("errors", [])},
+            "state_manager": {"classes": list(state_mod.get("classes", {}).keys()), "instances": list(state_mod.get("instances", {}).keys()), "functions": list(state_mod.get("functions", {}).keys()), "errors": state_mod.get("errors", [])},
         }
     })
 
@@ -191,12 +213,14 @@ def health():
 @app.route("/scan", methods=["POST"])
 def scan():
     start = time.time()
+    force = request.args.get("force", "false").lower() == "true"
     results = []
     approved = 0
     skipped = 0
     errors = []
     used_demo = False
 
+    # Discover resources
     resources = []
     if discover_resources:
         success, result = safe_call(discover_resources)
@@ -211,23 +235,25 @@ def scan():
         resources = DEMO_RESOURCES
         used_demo = True
 
+    # Process each resource
     for resource in resources:
         name = get_resource_name(resource)
         res_type = get_resource_type(resource)
 
-        if was_recently_optimized(name):
+        if not force and was_recently_optimized(name):
             skipped += 1
             results.append({
                 "resource": name,
                 "type": res_type,
                 "status": "skipped",
-                "reason": "Optimized in last 24h"
+                "reason": "Optimized in last 24h (use ?force=true to override)"
             })
             continue
 
         item = {"resource": name, "type": res_type}
 
         try:
+            # Profile
             metrics = None
             if profile_resource:
                 ok, metrics = safe_call(profile_resource, resource)
@@ -237,10 +263,13 @@ def scan():
             else:
                 metrics = DEMO_METRICS
 
+            # Score
             score_val = 0.5
+            score_obj = None
             if calculate_cws:
                 ok, score = safe_call(calculate_cws, resource, metrics)
                 if ok:
+                    score_obj = score
                     score_val = getattr(score, 'total', score) if hasattr(score, 'total') else (score if isinstance(score, (int, float)) else 0.5)
                 else:
                     item["score_error"] = score
@@ -248,9 +277,10 @@ def scan():
             else:
                 score_val = 0.8 if "demo-service" in name else 0.46
 
+            # Generate patch
             patch = None
             if generate_patch:
-                ok, patch = safe_call(generate_patch, resource, metrics, score)
+                ok, patch = safe_call(generate_patch, resource, metrics, score_obj or score_val)
                 if not ok:
                     item["patch_error"] = patch
                     patch = DEMO_PATCH
@@ -260,6 +290,7 @@ def scan():
             patch_action = patch.get("action") if isinstance(patch, dict) else getattr(patch, 'action', str(patch))
             patch_savings = patch.get("estimated_savings") if isinstance(patch, dict) else getattr(patch, 'estimated_savings', 'N/A')
 
+            # Validate
             validation = {"passed": True}
             if validate_patch:
                 ok, validation = safe_call(validate_patch, patch)
@@ -319,6 +350,7 @@ def scan():
         "scan_duration_sec": round(time.time() - start, 2),
         "mode": "cloud" if RUNNING_IN_CLOUD else "local",
         "used_demo_data": used_demo,
+        "force_scan": force,
         "errors": errors,
         "results": results,
     })
@@ -357,11 +389,15 @@ def dashboard():
             .card { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 16px 0; border: 1px solid #2a2a4e; }
             .metric { font-size: 2em; font-weight: bold; color: #00ff88; }
             .label { color: #888; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
-            button { background: #00ff88; color: #0f0f23; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1em; }
-            button:hover { background: #00cc6a; }
+            button { background: #00ff88; color: #0f0f23; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1em; margin-right: 10px; }
+            button.secondary { background: #2a2a4e; color: #fff; }
+            button:hover { opacity: 0.9; }
             pre { background: #0a0a1a; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
             .status-ok { color: #00ff88; }
             .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+            .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-right: 4px; }
+            .tag-ok { background: #004d1a; color: #00ff88; }
+            .tag-err { background: #4d0000; color: #ff4444; }
         </style>
     </head>
     <body>
@@ -371,6 +407,8 @@ def dashboard():
             <p style="font-size:1.2em;">{{ project }}</p>
             <p class="label">Status</p>
             <p class="status-ok">● Live on Google Cloud Run</p>
+            <p class="label">Modules</p>
+            <p id="modules">Loading...</p>
         </div>
         <div class="grid">
             <div class="card">
@@ -387,14 +425,32 @@ def dashboard():
             </div>
         </div>
         <div class="card">
-            <button onclick="runScan()">🚀 Run Scan Now</button>
-            <button onclick="loadHistory()" style="margin-left:10px;background:#2a2a4e;color:#fff;">📜 View History</button>
-            <pre id="output">Click "Run Scan Now" to see AGEM in action...</pre>
+            <button onclick="runScan()">🚀 Run Scan</button>
+            <button class="secondary" onclick="runScanForce()">⚡ Force Scan (Bypass 24h)</button>
+            <button class="secondary" onclick="loadHistory()">📜 History</button>
+            <pre id="output">Click a button to interact with AGEM...</pre>
         </div>
         <script>
+            async function loadModules() {
+                const res = await fetch("/");
+                const data = await res.json();
+                const mods = data.modules_loaded || {};
+                const html = Object.entries(mods).map(([k,v]) => 
+                    `<span class="tag ${v ? 'tag-ok' : 'tag-err'}">${k}: ${v ? 'ON' : 'OFF'}</span>`
+                ).join(" ");
+                document.getElementById("modules").innerHTML = html;
+            }
             async function runScan() {
                 document.getElementById("output").textContent = "Scanning...";
                 const res = await fetch("/scan", {method: "POST"});
+                const data = await res.json();
+                document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+                document.getElementById("savings").textContent = data.total_estimated_monthly_savings || "—";
+                document.getElementById("opts").textContent = data.total_optimizations_in_history || "—";
+            }
+            async function runScanForce() {
+                document.getElementById("output").textContent = "Force scanning...";
+                const res = await fetch("/scan?force=true", {method: "POST"});
                 const data = await res.json();
                 document.getElementById("output").textContent = JSON.stringify(data, null, 2);
                 document.getElementById("savings").textContent = data.total_estimated_monthly_savings || "—";
@@ -406,6 +462,7 @@ def dashboard():
                 const data = await res.json();
                 document.getElementById("output").textContent = JSON.stringify(data, null, 2);
             }
+            loadModules();
         </script>
     </body>
     </html>
