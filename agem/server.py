@@ -91,7 +91,6 @@ for inst in state_mod.get("instances", {}).values():
 
 # ── Type Normalizers ─────────────────────────────────────────
 def to_dict(obj):
-    """Convert dataclass/object to dict for modules that expect .get()."""
     if isinstance(obj, dict):
         return obj
     if hasattr(obj, "__dict__"):
@@ -100,21 +99,11 @@ def to_dict(obj):
         return obj._asdict()
     return {"value": obj}
 
-def to_namespace(obj):
-    """Convert dict to object with dot-access for modules that expect .after, .action, etc."""
-    if obj is None:
-        return SimpleNamespace(action="N/A", estimated_savings="N/A", after="", before="", patch_type="unknown")
-    if not isinstance(obj, dict):
-        return obj  # Already an object
-    return SimpleNamespace(**obj)
-
 def to_patch_namespace(obj):
-    """Convert patch dict to namespace with all expected attributes."""
     if obj is None:
         return SimpleNamespace(action="N/A", estimated_savings="N/A", after="", before="", patch_type="unknown", rollback="N/A")
     if not isinstance(obj, dict):
         return obj
-    # Ensure all expected fields exist
     defaults = {"action": "N/A", "estimated_savings": "N/A", "after": "", "before": "", "patch_type": "unknown", "rollback": "N/A", "resource_name": "unknown", "resource_type": "unknown"}
     defaults.update(obj)
     return SimpleNamespace(**defaults)
@@ -250,7 +239,7 @@ def scan():
             else:
                 metrics = DEMO_METRICS
 
-            # Score — try (resource, metrics) then (metrics)
+            # Score
             score_val = 0.5
             score_obj = None
             if calculate_cws:
@@ -266,10 +255,10 @@ def scan():
             else:
                 score_val = 0.8 if "service" in name else 0.46
 
-            # Convert score to dict for patcher (it calls .get())
+            # Convert score to dict for patcher
             score_dict = to_dict(score_obj) if score_obj is not None else {"total": score_val}
 
-            # Patch — takes (resource, score_dict)
+            # Patch
             patch = None
             if generate_patch:
                 ok, patch = safe_call(generate_patch, resource, score_dict)
@@ -279,25 +268,30 @@ def scan():
             else:
                 patch = DEMO_PATCH
 
-            # Convert patch to namespace for validator (it accesses .after, .action)
             patch_ns = to_patch_namespace(patch)
             patch_action = patch_ns.action
             patch_savings = patch_ns.estimated_savings
 
-            # Validate — takes (patch_ns, resource)
-            validation = {"passed": True}
+            # Validate — normalize result to dict
+            validation_raw = {"passed": True}
             if validate_patch:
-                ok, validation = safe_call(validate_patch, patch_ns, resource)
+                ok, validation_raw = safe_call(validate_patch, patch_ns, resource)
                 if not ok:
-                    item["validation_error"] = validation
-                    validation = {"passed": True}
+                    item["validation_error"] = validation_raw
+                    validation_raw = {"passed": True}
+
+            # CRITICAL FIX: convert ValidationResult dataclass to dict
+            validation = to_dict(validation_raw)
+            # Also flatten nested .checks if present
+            if "checks" in validation and hasattr(validation["checks"], "__dict__"):
+                validation["checks"] = to_dict(validation["checks"])
 
             item["cws_before"] = score_val
             item["patch_action"] = patch_action
             item["estimated_savings"] = patch_savings
             item["validation"] = validation
 
-            is_valid = isinstance(validation, dict) and validation.get("passed")
+            is_valid = validation.get("passed") is True
             if is_valid:
                 if RUNNING_IN_CLOUD:
                     item["status"] = "approved"
