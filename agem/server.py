@@ -1,3 +1,4 @@
+
 import os
 import json
 import traceback
@@ -8,7 +9,7 @@ app = Flask(__name__)
 RUNNING_IN_CLOUD = os.environ.get("K_SERVICE") is not None
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-# ── Import AGEM Multi-Agent System ───────────────────────────
+# ADK imports are OPTIONAL — graceful fallback if not installed
 try:
     from agem.agents.supervisor import AGEMSupervisor
     from agem.agents.approval_queue import ApprovalQueue
@@ -20,12 +21,10 @@ except Exception as e:
     ApprovalQueue = None
     AgentTracer = None
 
-# Initialize singletons
 supervisor = AGEMSupervisor() if ADK_AGENTS_AVAILABLE else None
 approval_queue = ApprovalQueue() if ADK_AGENTS_AVAILABLE else None
 tracer = AgentTracer() if ADK_AGENTS_AVAILABLE else None
 
-# ── Routes ───────────────────────────────────────────────────
 @app.route("/")
 def index():
     return jsonify({
@@ -44,13 +43,10 @@ def health():
 
 @app.route("/scan", methods=["POST"])
 def scan():
-    \"\"\"Run the full AGEM pipeline via ADK Supervisor agent.\"\"\"
     if supervisor is None:
         return jsonify({"error": "ADK Supervisor not available", "project": PROJECT_ID}), 503
-    
     force = request.args.get("force", "false").lower() == "true"
     dry_run = request.args.get("dry_run", "true" if RUNNING_IN_CLOUD else "false").lower() == "true"
-    
     try:
         result = supervisor.run_pipeline(force=force, dry_run=dry_run)
         return jsonify(result)
@@ -63,23 +59,17 @@ def scan():
 
 @app.route("/approvals", methods=["GET"])
 def list_approvals():
-    \"\"\"List pending human approvals.\"\"\"
     if approval_queue is None:
         return jsonify({"error": "Approval queue not available"}), 503
     try:
         pending = approval_queue.list_pending()
         stats = approval_queue.get_stats()
-        return jsonify({
-            "project": PROJECT_ID,
-            "pending": pending,
-            "stats": stats,
-        })
+        return jsonify({"project": PROJECT_ID, "pending": pending, "stats": stats})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/approvals/<approval_id>/approve", methods=["POST"])
 def approve_patch(approval_id):
-    \"\"\"Human approves a pending patch.\"\"\"
     if approval_queue is None:
         return jsonify({"error": "Approval queue not available"}), 503
     try:
@@ -92,7 +82,6 @@ def approve_patch(approval_id):
 
 @app.route("/approvals/<approval_id>/reject", methods=["POST"])
 def reject_patch(approval_id):
-    \"\"\"Human rejects a pending patch.\"\"\"
     if approval_queue is None:
         return jsonify({"error": "Approval queue not available"}), 503
     try:
@@ -106,22 +95,16 @@ def reject_patch(approval_id):
 
 @app.route("/traces", methods=["GET"])
 def list_traces():
-    \"\"\"List agent execution traces.\"\"\"
     if tracer is None:
         return jsonify({"error": "Tracer not available"}), 503
     try:
         traces = tracer.list_traces(limit=50)
-        return jsonify({
-            "project": PROJECT_ID,
-            "count": len(traces),
-            "traces": traces,
-        })
+        return jsonify({"project": PROJECT_ID, "count": len(traces), "traces": traces})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/traces/<trace_id>", methods=["GET"])
 def get_trace(trace_id):
-    \"\"\"Get a single trace by ID.\"\"\"
     if tracer is None:
         return jsonify({"error": "Tracer not available"}), 503
     try:
@@ -134,7 +117,6 @@ def get_trace(trace_id):
 
 @app.route("/history", methods=["GET"])
 def history():
-    \"\"\"Legacy endpoint — optimization history from Firestore.\"\"\"
     try:
         from agem.state_manager import StateManager
         state = StateManager()
@@ -149,8 +131,7 @@ def history():
 
 @app.route("/dashboard")
 def dashboard():
-    \"\"\"Interactive HTML dashboard for judges.\"\"\"
-    html = \"\"\"<!DOCTYPE html>
+    html = """<!DOCTYPE html>
 <html><head><title>AGEM Dashboard</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:1000px;margin:40px auto;padding:20px;background:#0f0f23;color:#e0e0e0}
@@ -173,10 +154,10 @@ pre{background:#0a0a1a;padding:16px;border-radius:8px;overflow-x:auto;font-size:
 .approval-card button{margin-top:8px}
 </style></head>
 <body>
-<h1>🔧 AGEM — Autonomous Google-powered Efficiency Manager</h1>
+<h1>AGEM — Autonomous Google-powered Efficiency Manager</h1>
 <div class="card">
 <p class="label">Project</p><p style="font-size:1.2em">{{ project }}</p>
-<p class="label">Status</p><p class="status-ok">● Live on Google Cloud Run</p>
+<p class="label">Status</p><p class="status-ok">Live on Google Cloud Run</p>
 <p class="label">Architecture</p>
 <p><span class="tag tag-ok">Google ADK</span> <span class="tag tag-ok">Multi-Agent</span> <span class="tag tag-ok">Human-in-the-Loop</span> <span class="tag tag-ok">Firestore Memory</span></p>
 </div>
@@ -186,10 +167,10 @@ pre{background:#0a0a1a;padding:16px;border-radius:8px;overflow-x:auto;font-size:
 <div class="card"><p class="label">Pending Approvals</p><p class="metric" id="pending">—</p></div>
 </div>
 <div class="card">
-<button onclick="runScan()">🚀 Run Scan (Dry-Run)</button>
-<button class="secondary" onclick="runScanLive()">🔥 Run Scan (Live)</button>
-<button class="secondary" onclick="loadApprovals()">📋 Pending Approvals</button>
-<button class="secondary" onclick="loadTraces()">📡 Agent Traces</button>
+<button onclick="runScan()">Run Scan (Dry-Run)</button>
+<button class="secondary" onclick="runScanLive()">Run Scan (Live)</button>
+<button class="secondary" onclick="loadApprovals()">Pending Approvals</button>
+<button class="secondary" onclick="loadTraces()">Agent Traces</button>
 <pre id="output">Click a button to interact with AGEM...</pre>
 </div>
 <div class="card" id="approvals-section" style="display:none;">
@@ -254,13 +235,13 @@ function renderApprovals(list){
             <strong>${a.resource}</strong> <span class="tag tag-warn">${a.resource_type}</span><br>
             <small>${a.patch_action}</small><br>
             <small>Savings: ${a.estimated_savings} | CWS: ${a.cws_before}</small><br>
-            <button onclick="approvePatch('${a.approval_id}')">✅ Approve</button>
-            <button class="danger" onclick="rejectPatch('${a.approval_id}')">❌ Reject</button>
+            <button onclick="approvePatch('${a.approval_id}')">Approve</button>
+            <button class="danger" onclick="rejectPatch('${a.approval_id}')">Reject</button>
         </div>
     `).join("");
 }
 updateStats();
-</script></body></html>\"\"\"
+</script></body></html>"""
     return render_template_string(html, project=PROJECT_ID)
 
 if __name__ == "__main__":
