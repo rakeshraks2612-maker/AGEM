@@ -1,38 +1,30 @@
 """ADK Supervisor agent for AGEM."""
 from google.adk.agents import Agent
-from google.adk.tools import function_tool
 
-@function_tool
 def discover_resources() -> str:
     """Discover GCP resources via Cloud Asset Inventory."""
     return "Resources discovered"
 
-@function_tool
 def profile_metrics() -> str:
     """Profile 7-day utilization metrics via Cloud Monitoring."""
     return "Metrics profiled"
 
-@function_tool
 def score_waste() -> str:
     """Compute Cloud Waste Score (CWS)."""
     return "Waste scored"
 
-@function_tool
 def generate_patch() -> str:
     """Generate gcloud optimization patch via Gemini."""
     return "Patch generated"
 
-@function_tool
 def validate_safety() -> str:
     """Validate patch for destructive ops and rollback."""
     return "Patch validated"
 
-@function_tool
 def commit_git() -> str:
     """Commit approved patch to isolated git branch."""
     return "Patch committed"
 
-@function_tool
 def execute_patch() -> str:
     """Execute validated patch on GCP."""
     return "Patch executed"

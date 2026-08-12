@@ -1,6 +1,5 @@
 """Base ADK agent for AGEM."""
 from google.adk.agents import Agent
-from google.adk.tools import function_tool
 
 class BaseAGEMAgent:
     """Base class for all AGEM ADK agents."""
