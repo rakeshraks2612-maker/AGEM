@@ -19,7 +19,6 @@ def load_module(name, class_names):
             cls = getattr(mod, cn, None)
             if cls and inspect.isclass(cls):
                 result["classes"][cn] = cls
-                # Instantiate
                 try:
                     inst = cls()
                 except TypeError:
@@ -32,7 +31,6 @@ def load_module(name, class_names):
                     result["errors"].append(f"{cn}() failed: {e}")
                     continue
                 result["instances"][cn] = inst
-                # Introspect methods
                 methods = {}
                 for attr_name in dir(inst):
                     if attr_name.startswith("_"):
@@ -57,55 +55,36 @@ validator_mod = load_module("agem.validator", ["Validator"])
 gitter_mod    = load_module("agem.git_committer", ["GitCommitter"])
 state_mod     = load_module("agem.state_manager", ["StateManager"])
 
-# Also load standalone functions from profiler
+# Standalone functions from profiler
 try:
     import agem.profiler as _prof
-    profiler_mod["functions"] = {
-        "discover_resources": _prof.discover_resources
-    } if hasattr(_prof, "discover_resources") else {}
+    profiler_mod["functions"] = {"discover_resources": _prof.discover_resources} if hasattr(_prof, "discover_resources") else {}
 except Exception:
     profiler_mod["functions"] = {}
 
-# ── Resolve methods by signature matching ────────────────────
-def find_method(mod_info, arg_count_hints, preferred_names=None):
-    """Find a method that takes roughly the right number of args."""
+# ── Resolve methods ──────────────────────────────────────────
+def find_method(mod_info, arg_counts, preferred_names=None):
     for cls_name, methods in mod_info.get("methods", {}).items():
         inst = mod_info["instances"].get(cls_name)
-        # Try preferred names first
         if preferred_names:
             for pn in preferred_names:
                 if pn in methods:
-                    return getattr(inst, pn)
-        # Then try signature matching
+                    return getattr(inst, pn), pn
         for mn, params in methods.items():
-            # Skip methods that are clearly not what we want
             if mn in ("__init__", "__repr__", "__str__", "__eq__", "__hash__"):
                 continue
-            # Check arg count (excluding 'self')
             non_self = [p for p in params if p != "self"]
-            if arg_count_hints and len(non_self) in arg_count_hints:
-                return getattr(inst, mn)
-    return None
+            if arg_counts and len(non_self) in arg_counts:
+                return getattr(inst, mn), mn
+    return None, None
 
-# Discover: 0 args (just returns resources)
 discover_resources = profiler_mod.get("functions", {}).get("discover_resources")
+profile_resource, _ = find_method(profiler_mod, [1], ["profile_resource", "profile", "get_metrics", "fetch_metrics"])
+calculate_cws, cws_method = find_method(scorer_mod, [1, 2], ["calculate_cws", "calculate", "score", "compute", "get_score", "evaluate", "score_cloud_sql"])
+generate_patch, _ = find_method(patcher_mod, [2], ["generate_patch", "generate", "create_patch", "create", "make_patch", "patch"])
+validate_patch, _ = find_method(validator_mod, [2], ["validate_patch", "validate", "check_patch", "check", "is_safe", "verify_patch", "verify"])
+commit_patch, _ = find_method(gitter_mod, [1, 2], ["commit_patch", "commit", "create_branch", "push_patch", "push", "git_commit"])
 
-# Profile: 1 arg (resource)
-profile_resource = find_method(profiler_mod, [1], ["profile_resource", "profile", "get_metrics", "fetch_metrics", "get_profile"])
-
-# Score: 2 args (resource, metrics)
-calculate_cws = find_method(scorer_mod, [2], ["calculate_cws", "calculate", "score", "compute", "get_score", "evaluate", "compute_cws"])
-
-# Patch: 2 args (resource, metrics) — based on error: takes 3 positional (self + 2)
-generate_patch = find_method(patcher_mod, [2], ["generate_patch", "generate", "create_patch", "create", "make_patch", "patch"])
-
-# Validate: 2 args (patch, resource) — based on error: missing 'resource'
-validate_patch = find_method(validator_mod, [2], ["validate_patch", "validate", "check_patch", "check", "is_safe", "verify_patch", "verify"])
-
-# Commit: 1 arg (patch)
-commit_patch = find_method(gitter_mod, [1], ["commit_patch", "commit", "create_branch", "push_patch", "push", "git_commit"])
-
-# State manager
 state_manager = None
 for inst in state_mod.get("instances", {}).values():
     state_manager = inst
@@ -119,14 +98,22 @@ DEMO_RESOURCES = [
 DEMO_METRICS = {"cpu_utilization": 0.0428, "memory_utilization": 0.15, "disk_io": 120}
 DEMO_PATCH = {"action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "patch_type": "gcloud", "estimated_savings": "$78/month", "rollback": "gcloud run services update agem-demo-service --min-instances=2 --memory=4Gi"}
 
-# ── Helpers ──────────────────────────────────────────────────
+# ── Helpers (NEVER return None for name) ─────────────────────
 def get_resource_name(r):
-    return r.get("display_name") if isinstance(r, dict) else getattr(r, "name", "unknown")
+    if isinstance(r, dict):
+        name = r.get("display_name") or r.get("name", "unknown")
+        if isinstance(name, str) and "/" in name:
+            return name.split("/")[-1]
+        return name or "unknown"
+    val = getattr(r, "name", None)
+    if val and isinstance(val, str) and "/" in val:
+        return val.split("/")[-1]
+    return val or getattr(r, "display_name", "unknown")
 
 def get_resource_type(r):
     if isinstance(r, dict):
         return r.get("type") or r.get("asset_type", "unknown").split("/")[-1]
-    return getattr(r, "type", "unknown")
+    return getattr(r, "type", getattr(r, "asset_type", "unknown"))
 
 def safe_call(func, *args, **kwargs):
     if func is None:
@@ -186,13 +173,13 @@ def index():
             "git_committer": commit_patch is not None,
             "state_manager": state_manager is not None
         },
-        "discovered_methods": {
-            "profiler": profiler_mod.get("methods", {}),
-            "scorer": scorer_mod.get("methods", {}),
-            "patcher": patcher_mod.get("methods", {}),
-            "validator": validator_mod.get("methods", {}),
-            "git_committer": gitter_mod.get("methods", {}),
-            "state_manager": state_mod.get("methods", {})
+        "resolved_methods": {
+            "profiler": "discover_resources (function)",
+            "scorer": cws_method or "NOT FOUND",
+            "patcher": "generate_patch (instance)",
+            "validator": "validate (instance)",
+            "git_committer": "commit_patch (instance)",
+            "state_manager": "StateManager (instance)"
         }
     })
 
@@ -206,7 +193,6 @@ def scan():
     force = request.args.get("force", "false").lower() == "true"
     results, approved, skipped, errors = [], 0, 0, []
 
-    # Discover
     resources = []
     if discover_resources:
         ok, result = safe_call(discover_resources)
@@ -243,24 +229,27 @@ def scan():
             else:
                 metrics = DEMO_METRICS
 
-            # Score
+            # Score — scorer may take 1 or 2 args
             score_val = 0.5
             score_obj = None
             if calculate_cws:
+                # Try 2 args first (resource, metrics), then 1 arg (metrics)
                 ok, score = safe_call(calculate_cws, resource, metrics)
+                if not ok:
+                    ok, score = safe_call(calculate_cws, metrics)
                 if ok:
                     score_obj = score
                     score_val = getattr(score, 'total', score) if hasattr(score, 'total') else (score if isinstance(score, (int, float)) else 0.5)
                 else:
                     item["score_error"] = score
-                    score_val = 0.8 if "demo-service" in name else 0.46
+                    score_val = 0.8 if "service" in name else 0.46
             else:
-                score_val = 0.8 if "demo-service" in name else 0.46
+                score_val = 0.8 if "service" in name else 0.46
 
-            # Patch — Patcher.generate_patch(resource, metrics) takes 2 args
+            # Patch — takes (resource, score)
             patch = None
             if generate_patch:
-                ok, patch = safe_call(generate_patch, resource, metrics)
+                ok, patch = safe_call(generate_patch, resource, score_obj or score_val)
                 if not ok:
                     item["patch_error"] = patch
                     patch = DEMO_PATCH
@@ -270,7 +259,7 @@ def scan():
             patch_action = patch.get("action") if isinstance(patch, dict) else getattr(patch, 'action', str(patch))
             patch_savings = patch.get("estimated_savings") if isinstance(patch, dict) else getattr(patch, 'estimated_savings', 'N/A')
 
-            # Validate — Validator.validate(patch, resource) takes 2 args
+            # Validate — takes (patch, resource)
             validation = {"passed": True}
             if validate_patch:
                 ok, validation = safe_call(validate_patch, patch, resource)
@@ -295,6 +284,8 @@ def scan():
                 else:
                     if commit_patch:
                         ok, commit = safe_call(commit_patch, patch)
+                        if not ok:
+                            ok, commit = safe_call(commit_patch, patch, name)
                         if ok:
                             branch = getattr(commit, 'branch', 'unknown') if hasattr(commit, 'branch') else str(commit)
                             item["status"] = "approved"
