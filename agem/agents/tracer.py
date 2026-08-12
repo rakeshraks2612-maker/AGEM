@@ -1,7 +1,6 @@
 """Agent Observability — stores agent reasoning traces in Firestore."""
 import os
 import time
-import uuid
 from typing import Dict, List, Any, Optional
 
 try:
@@ -14,7 +13,7 @@ except ImportError:
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
 class AgentTracer:
-    \"\"\"Records every step of the agent pipeline for observability and debugging.\"\"\"
+    """Records every step of the agent pipeline for observability and debugging."""
     
     def __init__(self):
         self.db = None
@@ -26,7 +25,7 @@ class AgentTracer:
                 self.db = None
     
     def start_trace(self, trace_id: str, metadata: Dict[str, Any] = None):
-        \"\"\"Initialize a new trace.\"\"\"
+        """Initialize a new trace."""
         if not self.collection:
             return
         doc = {
@@ -42,7 +41,7 @@ class AgentTracer:
             pass
     
     def log_step(self, trace_id: str, agent_name: str, message: str, data: Dict[str, Any] = None):
-        \"\"\"Log a single agent step.\"\"\"
+        """Log a single agent step."""
         if not self.collection:
             return
         step = {
@@ -58,7 +57,7 @@ class AgentTracer:
             pass
     
     def end_trace(self, trace_id: str, summary: Dict[str, Any] = None):
-        \"\"\"Finalize a trace with summary stats.\"\"\"
+        """Finalize a trace with summary stats."""
         if not self.collection:
             return
         try:
@@ -71,7 +70,7 @@ class AgentTracer:
             pass
     
     def get_trace(self, trace_id: str) -> Optional[Dict]:
-        \"\"\"Retrieve a single trace.\"\"\"
+        """Retrieve a single trace."""
         if not self.collection:
             return None
         try:
@@ -81,7 +80,7 @@ class AgentTracer:
             return None
     
     def list_traces(self, limit: int = 50) -> List[Dict]:
-        \"\"\"List recent traces.\"\"\"
+        """List recent traces."""
         if not self.collection:
             return []
         try:

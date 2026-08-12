@@ -14,7 +14,7 @@ except ImportError:
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
 class ApprovalQueue:
-    \"\"\"Manages pending optimization patches awaiting human approval.\"\"\"
+    """Manages pending optimization patches awaiting human approval."""
     
     def __init__(self):
         self.db = None
@@ -26,7 +26,7 @@ class ApprovalQueue:
                 self.db = None
     
     def create(self, data: Dict) -> str:
-        \"\"\"Create a new approval request. Returns approval_id.\"\"\"
+        """Create a new approval request. Returns approval_id."""
         approval_id = str(uuid.uuid4())[:8]
         doc = {
             "approval_id": approval_id,
@@ -46,7 +46,7 @@ class ApprovalQueue:
         return approval_id
     
     def list_pending(self, limit: int = 50) -> List[Dict]:
-        \"\"\"List all pending approvals.\"\"\"
+        """List all pending approvals."""
         if not self.collection:
             return []
         try:
@@ -56,7 +56,7 @@ class ApprovalQueue:
             return []
     
     def get(self, approval_id: str) -> Optional[Dict]:
-        \"\"\"Get a single approval by ID.\"\"\"
+        """Get a single approval by ID."""
         if not self.collection:
             return None
         try:
@@ -66,7 +66,7 @@ class ApprovalQueue:
             return None
     
     def approve(self, approval_id: str, approved_by: str = "human") -> bool:
-        \"\"\"Approve a pending patch and execute it.\"\"\"
+        """Approve a pending patch and execute it."""
         if not self.collection:
             return False
         try:
@@ -78,21 +78,18 @@ class ApprovalQueue:
             if data.get("status") != "pending":
                 return False
             
-            # Update status
             doc_ref.update({
                 "status": "approved",
                 "approved_at": time.time(),
                 "approved_by": approved_by,
             })
             
-            # Execute the patch (git commit)
             from .base import commit_patch_to_git, record_optimization_history
             import json
             patch = data.get("patch", {})
             commit_raw = commit_patch_to_git(json.dumps(patch))
             commit = json.loads(commit_raw)
             
-            # Record in history
             record_optimization_history(
                 data.get("resource", "unknown"),
                 data.get("resource_type", "unknown"),
@@ -106,7 +103,7 @@ class ApprovalQueue:
             return False
     
     def reject(self, approval_id: str, reason: str = "") -> bool:
-        \"\"\"Reject a pending patch.\"\"\"
+        """Reject a pending patch."""
         if not self.collection:
             return False
         try:
@@ -127,7 +124,7 @@ class ApprovalQueue:
             return False
     
     def get_stats(self) -> Dict:
-        \"\"\"Get queue statistics.\"\"\"
+        """Get queue statistics."""
         if not self.collection:
             return {"pending": 0, "approved": 0, "rejected": 0, "total": 0}
         try:

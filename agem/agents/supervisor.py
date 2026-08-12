@@ -21,7 +21,7 @@ from .tracer import AgentTracer
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
 
-SUPERVISOR_INSTRUCTION = \"\"\"You are AGEM Supervisor, an autonomous cloud optimization engineer for Google Cloud Platform.
+SUPERVISOR_INSTRUCTION = """You are AGEM Supervisor, an autonomous cloud optimization engineer for Google Cloud Platform.
 
 Your mission: discover over-provisioned resources, score waste, generate safe patches, and execute optimizations.
 
@@ -43,7 +43,7 @@ SAFETY:
 - ALWAYS quantify savings in dollars
 - When in doubt, reject the patch
 
-Respond in structured JSON only.\"\"\"
+Respond in structured JSON only."""
 
 class AGEMSupervisor:
     """Wraps the ADK Supervisor agent and executes the AGEM pipeline."""
@@ -55,27 +55,19 @@ class AGEMSupervisor:
         self.runner = None
         if ADK_AVAILABLE and Agent and Runner:
             self.agent = Agent(
-                model=\"gemini-3.6-flash\",
-                name=\"agem_supervisor\",
-                description=\"Autonomous GCP optimization supervisor\",
+                model="gemini-3.6-flash",
+                name="agem_supervisor",
+                description="Autonomous GCP optimization supervisor",
                 instruction=SUPERVISOR_INSTRUCTION,
                 tools=AGEM_TOOLS,
             )
             self.runner = Runner(agent=self.agent, session_service=self.session_service)
     
     def run_pipeline(self, force: bool = False, dry_run: bool = True) -> Dict[str, Any]:
-        \"\"\"Execute the full AGEM pipeline.
-        
-        Args:
-            force: Bypass 24h memory check.
-            dry_run: If True, don't actually commit patches (simulate).
-        
-        Returns:
-            Dict with scan results, approvals, and traces.
-        \"\"\"        
+        """Execute the full AGEM pipeline."""
         start = time.time()
-        trace_id = f\"trace-{int(start)}"
-        self.tracer.start_trace(trace_id, {\"force\": force, "dry_run": dry_run})
+        trace_id = f"trace-{int(start)}"
+        self.tracer.start_trace(trace_id, {"force": force, "dry_run": dry_run})
         
         results = []
         approved = 0
@@ -96,12 +88,11 @@ class AGEMSupervisor:
             resources = []
             self.tracer.log_step(trace_id, "discovery", f"Failed: {e}", {"error": str(e)})
         
-        # Step 2-8: Process each resource
+        # Process each resource
         for resource in resources:
             name = resource.get("display_name") or resource.get("name", "unknown").split("/")[-1]
             res_type = resource.get("type") or resource.get("asset_type", "unknown").split("/")[-1]
             
-            # Check memory
             if not force:
                 try:
                     from .base import check_recent_optimization
@@ -131,7 +122,6 @@ class AGEMSupervisor:
                 score_total = score.get("total", 0.5)
                 item["cws_before"] = score_total
                 
-                # Skip if not wasteful
                 if score_total < 0.5:
                     item["status"] = "not_wasteful"
                     results.append(item)
@@ -167,7 +157,6 @@ class AGEMSupervisor:
                     savings_num = 0
                 
                 if savings_num > 50 and not force:
-                    # Queue for human approval
                     approval_id = self.approval_queue.create({
                         "resource": name,
                         "type": res_type,
@@ -181,7 +170,6 @@ class AGEMSupervisor:
                     pending += 1
                     self.tracer.log_step(trace_id, "approval", f"{name} queued for approval (savings: {savings_str})", {"resource": name, "approval_id": approval_id})
                 else:
-                    # Auto-approve
                     if not dry_run:
                         from .base import commit_patch_to_git
                         commit_raw = commit_patch_to_git(json.dumps(patch))
@@ -205,7 +193,6 @@ class AGEMSupervisor:
             
             results.append(item)
         
-        # Finalize trace
         self.tracer.end_trace(trace_id, {
             "resources_scanned": len(resources),
             "approved": approved,
