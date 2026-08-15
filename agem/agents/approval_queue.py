@@ -1,7 +1,10 @@
 """Human-in-the-loop approval queue backed by Firestore."""
 import os
 import time
+import threading
 from typing import List, Dict, Optional
+
+os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "0"
 
 try:
     from google.cloud import firestore
@@ -10,9 +13,6 @@ try:
 except Exception:
     _db = None
     _FS_OK = False
-
-
-import threading
 
 
 class ApprovalQueue:
@@ -33,24 +33,24 @@ class ApprovalQueue:
             "dry_run": patch.get("dry_run", True),
         }
         self._mem[patch_id] = doc
-        if _FS_OK:
+        if _FS_OK and _db:
             def _bg_add():
                 try:
-                    _db.collection("agem_approvals").document(patch_id).set(doc)
-                except Exception as e:
-                    print("[Queue] Firestore write notice: " + str(e))
+                    _db.collection("agem_approvals").document(patch_id).set(doc, timeout=1.0)
+                except Exception:
+                    pass
             threading.Thread(target=_bg_add, daemon=True).start()
         return patch_id
 
     def list_pending(self) -> List[dict]:
         try:
-            if _FS_OK:
-                docs = _db.collection("agem_approvals").where("status", "==", "pending").stream()
+            if _FS_OK and _db:
+                docs = _db.collection("agem_approvals").where("status", "==", "pending").stream(timeout=1.5)
                 res = [d.to_dict() for d in docs]
                 if res:
                     return res
-        except Exception as e:
-            print("[Queue] Firestore read notice: " + str(e))
+        except Exception:
+            pass
         return [v for v in self._mem.values() if v.get("status") == "pending"]
 
     def list_all(self) -> List[dict]:

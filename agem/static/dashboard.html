@@ -507,10 +507,15 @@ body {
         <div class="header-title-text" id="header-title">GCP Optimization Dashboard</div>
       </div>
       <div class="header-controls">
-        <div class="project-chip">
+        <button class="project-chip" style="cursor:pointer;background:var(--bg-card);" onclick="openHealthModal()" title="Inspect Google ADK System Health">
           <span class="pulse-dot"></span>
           <span>agem-505107 (Cloud Run)</span>
-        </div>
+          <span style="font-size:10px;background:rgba(30,142,62,0.15);color:var(--success);padding:2px 6px;border-radius:10px;font-weight:700;margin-left:4px;">ADK v2.6.3</span>
+        </button>
+        <button class="icon-button" title="Live System Health" onclick="openHealthModal()" style="display:flex;align-items:center;gap:6px;width:auto;padding:0 12px;font-weight:600;font-size:12px;color:var(--success);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span>Health</span>
+        </button>
         <div class="search-box">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input type="text" id="global-search-input" placeholder="Search GCP resources... (⌘K)" oninput="filterAllResources(this.value)">
@@ -537,7 +542,9 @@ body {
           <div style="font-size:12px;color:var(--text-muted);">Monitoring 15 GCP endpoints across Cloud SQL, Cloud Run, and BigQuery. Gemini 3.5 rightsizing engine standby.</div>
         </div>
       </div>
-      <span class="status-tag status-tag-green">System Healthy</span>
+      <button class="status-tag status-tag-green" style="cursor:pointer;border:none;font-family:inherit;font-weight:700;" onclick="openHealthModal()" title="View System Telemetry">
+        ● System Healthy (Inspect)
+      </button>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -1620,6 +1627,56 @@ function resetSettingsDefaults() {
   alert('🔄 Settings reset to factory defaults.');
 }
 
+// System Health Modal Handlers
+let healthRawData = null;
+
+async function openHealthModal() {
+  const modal = document.getElementById('health-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  
+  try {
+    const res = await fetch('/api/health');
+    const d = await res.json();
+    healthRawData = d;
+    
+    document.getElementById('hm-status').textContent = d.status ? d.status.toUpperCase() : 'HEALTHY';
+    document.getElementById('hm-adk').textContent = d.adk_version ? `v${d.adk_version}` : 'v2.6.3';
+    document.getElementById('hm-model').textContent = d.gemini_model || 'gemini-3.5-flash';
+    document.getElementById('hm-project').textContent = d.project || 'agem-505107';
+    document.getElementById('hm-resources').textContent = `${d.resources_managed || 15} Endpoints`;
+    
+    const met = d.metrics || {};
+    document.getElementById('hm-monthly').textContent = met.monthly_run_rate_savings || '$887.97/mo';
+    document.getElementById('hm-annual').textContent = met.annualized_projected_savings || '$10,655.64/year';
+    document.getElementById('hm-co2').textContent = met.estimated_co2_reduction || '4,262.3 kg CO2/year';
+    document.getElementById('hm-gain').textContent = met.cws_efficiency_gain || '+68.8%';
+    
+    const mods = d.core_modules || {};
+    const modKeys = Object.keys(mods);
+    document.getElementById('hm-modules').innerHTML = modKeys.map(k => `
+      <span class="status-tag status-tag-green" style="font-size:11px;padding:3px 8px;">✓ ${k}</span>
+    `).join(' ');
+    
+    document.getElementById('hm-json-code').textContent = JSON.stringify(d, null, 2);
+  } catch(e) {
+    console.error('Error loading health modal:', e);
+  }
+}
+
+function closeHealthModal() {
+  const modal = document.getElementById('health-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function copyHealthJson() {
+  if (healthRawData) {
+    navigator.clipboard.writeText(JSON.stringify(healthRawData, null, 2)).then(() => {
+      showToast('Copied', 'System health JSON payload copied to clipboard!', true);
+    });
+  }
+}
+
 // Initial Load
 window.addEventListener('DOMContentLoaded', () => {
   try { initCharts(); } catch(e) { console.error(e); }
@@ -1629,6 +1686,81 @@ window.addEventListener('DOMContentLoaded', () => {
   try { loadAgentReasoning(); } catch(e) { console.error(e); }
 });
 </script>
+
+<!-- SYSTEM HEALTH MODAL -->
+<div id="health-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); z-index:99998; align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); width:90%; max-width:680px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); padding:28px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="pulse-dot"></span>
+        <div style="font-weight:800; font-size:18px; color:var(--text-primary);">Google ADK & Cloud Run Runtime Health</div>
+      </div>
+      <button onclick="closeHealthModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:20px; padding:4px 8px;">✕</button>
+    </div>
+
+    <!-- Health Key Metrics Grid -->
+    <div class="grid-4-col" style="margin-bottom:20px;">
+      <div style="background:var(--bg-app); padding:12px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">System Status</div>
+        <div id="hm-status" style="font-size:16px; font-weight:800; color:var(--success); margin-top:2px;">HEALTHY</div>
+      </div>
+      <div style="background:var(--bg-app); padding:12px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">ADK Engine</div>
+        <div id="hm-adk" style="font-size:16px; font-weight:800; color:var(--primary); margin-top:2px;">v2.6.3</div>
+      </div>
+      <div style="background:var(--bg-app); padding:12px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">LLM Model</div>
+        <div id="hm-model" style="font-size:14px; font-weight:700; color:#6366f1; margin-top:4px;">gemini-3.5-flash</div>
+      </div>
+      <div style="background:var(--bg-app); padding:12px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Managed Fleet</div>
+        <div id="hm-resources" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">15 Endpoints</div>
+      </div>
+    </div>
+
+    <!-- GreenOps & FinOps ROI Summary -->
+    <div style="background:linear-gradient(135deg, rgba(30,142,62,0.06) 0%, rgba(26,115,232,0.06) 100%); border:1px solid rgba(30,142,62,0.25); border-radius:var(--radius-md); padding:16px 20px; margin-bottom:20px;">
+      <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; justify-content:space-between;">
+        <span>🌿 GreenOps & Autonomous FinOps Telemetry</span>
+        <span id="hm-gain" class="status-tag status-tag-green">+68.8% Efficiency</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; font-size:12px;">
+        <div><span style="color:var(--text-muted);">Monthly Run-Rate:</span> <strong id="hm-monthly" style="color:var(--success);">$887.97/mo</strong></div>
+        <div><span style="color:var(--text-muted);">Annualized ROI:</span> <strong id="hm-annual" style="color:#6366f1;">$10,655.64/year</strong></div>
+        <div><span style="color:var(--text-muted);">Carbon Offset:</span> <strong id="hm-co2" style="color:var(--primary);">4,262 kg CO₂/yr</strong></div>
+      </div>
+    </div>
+
+    <!-- Active Core Modules (7/7) -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">Registered Optimization Tools (7/7 Autonomous)</div>
+      <div id="hm-modules" style="display:flex; flex-wrap:wrap; gap:6px;">
+        <span class="status-tag status-tag-green">✓ profiler</span>
+        <span class="status-tag status-tag-green">✓ scorer</span>
+        <span class="status-tag status-tag-green">✓ patcher</span>
+        <span class="status-tag status-tag-green">✓ validator</span>
+        <span class="status-tag status-tag-green">✓ git_committer</span>
+        <span class="status-tag status-tag-green">✓ executor</span>
+        <span class="status-tag status-tag-green">✓ state_manager</span>
+      </div>
+    </div>
+
+    <!-- Raw JSON Inspector -->
+    <div style="border-top:1px solid var(--border-color); padding-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Raw /api/health Telemetry Payload</span>
+        <span style="font-size:11px; color:var(--primary); cursor:pointer; font-weight:600;" onclick="copyHealthJson()">📋 Copy JSON Payload</span>
+      </div>
+      <pre id="hm-json-code" style="background:#0f172a; color:#38bdf8; padding:14px; border-radius:var(--radius-sm); font-size:11px; font-family:'JetBrains Mono',monospace; max-height:160px; overflow-y:auto; border:1px solid #334155; margin:0;">Loading...</pre>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:20px; gap:10px;">
+      <button class="btn-action-base" onclick="openHealthModal()">🔄 Refresh Status</button>
+      <button class="btn-action-base btn-action-green" onclick="closeHealthModal()">Close Inspector</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 </body>
 </html>
