@@ -245,6 +245,38 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* Agent Reasoning Card */
+.agent-reasoning-card {
+  background: linear-gradient(135deg, rgba(26,115,232,0.03) 0%, rgba(99,102,241,0.05) 100%);
+  border: 1px solid rgba(26,115,232,0.25);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-top: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.reasoning-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.reasoning-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+.reasoning-body { font-size: 13px; line-height: 1.6; color: var(--text-secondary); background: var(--bg-app); padding: 14px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-family: 'Inter', sans-serif; white-space: pre-wrap; }
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.toast-item {
+  pointer-events: auto; min-width: 320px; max-width: 440px;
+  background: #0f172a; color: white; border: 1px solid #334155;
+  border-radius: var(--radius-md); padding: 14px 18px;
+  box-shadow: var(--shadow-lg); font-size: 13px;
+  display: flex; align-items: flex-start; gap: 12px;
+  animation: slide-in-toast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slide-in-toast {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* Card Panels */
 .card-panel {
   background: var(--bg-card); border: 1px solid var(--border-color);
@@ -521,11 +553,11 @@ body {
         </div>
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-label">Cloud Waste Score</span>
-            <span class="status-tag status-tag-blue">Optimal</span>
+            <span class="metric-label">Annualized Projected ROI</span>
+            <span class="status-tag status-tag-blue">Scale</span>
           </div>
-          <div class="metric-value">0.92<span style="font-size:14px;color:var(--text-muted);font-weight:600;">/1.0</span></div>
-          <div class="metric-subtitle">CWS Index Score</div>
+          <div class="metric-value" style="color: #6366f1;">$10,655<span style="font-size:14px;color:var(--text-muted);font-weight:600;">.64/yr</span></div>
+          <div class="metric-subtitle">~4,262 kg CO₂/yr reduced</div>
         </div>
         <div class="metric-card">
           <div class="metric-header">
@@ -538,11 +570,23 @@ body {
         <div class="metric-card">
           <div class="metric-header">
             <span class="metric-label">Pending Proposals</span>
-            <span class="status-tag status-tag-orange" id="overview-pending-badge">2 pending</span>
+            <span class="status-tag status-tag-orange" id="overview-pending-badge">3 pending</span>
           </div>
-          <div class="metric-value" id="overview-pending-count">2</div>
+          <div class="metric-value" id="overview-pending-count">3</div>
           <div class="metric-subtitle">Ready for live patch execution</div>
         </div>
+      </div>
+
+      <!-- Live ADK Reasoning Card -->
+      <div class="agent-reasoning-card">
+        <div class="reasoning-header">
+          <div class="reasoning-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><path d="M12 2a8 8 0 00-8 8c0 3.314 2.015 6.16 4.9 7.37.38.16.6.57.6.98V20a2 2 0 002 2h1a2 2 0 002-2v-1.65c0-.41.22-.82.6-.98A8.003 8.003 0 0020 10a8 8 0 00-8-8z"/></svg>
+            <span>Autonomous Agent Reasoning & Tradeoff Analysis (Google ADK & Gemini)</span>
+          </div>
+          <span class="status-tag status-tag-green">Live Supervisor Analysis</span>
+        </div>
+        <div id="adk-live-reasoning-body" class="reasoning-body">Prioritize the `agem-demo-service` optimization for immediate implementation due to its favorable risk-to-reward ratio of $25/month savings with manageable cold start impact. The `agem-demo-db` right-sizing downsizes idle db-n1-standard-2 to db-f1-micro saving $52/month. AST safety verified zero downtime impact.</div>
       </div>
 
       <!-- Autonomous Agent Loop Pipeline -->
@@ -1303,29 +1347,75 @@ function renderDiffPanel(patch) {
   }
 }
 
+// Toast Notification Helper
+function showToast(title, message, isSuccess = true) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast-item';
+  toast.innerHTML = `
+    <div style="font-size:18px;">${isSuccess ? '⚡' : '⚠️'}</div>
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:2px;color:${isSuccess ? '#4ade80' : '#f87171'};">${title}</div>
+      <div style="font-size:12px;color:#cbd5e1;line-height:1.4;">${message}</div>
+    </div>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4500);
+}
+
+// Live ADK Reasoning Fetcher
+async function loadAgentReasoning() {
+  try {
+    const res = await fetch('/api/traces');
+    const d = await res.json();
+    const traces = d.traces || [];
+    const rTrace = traces.find(t => t.step === '[ADK_REASONING]' || (t.detail && t.detail.includes('Prioritize')));
+    const box = document.getElementById('adk-live-reasoning-body');
+    if (box && rTrace && rTrace.detail) {
+      box.innerText = rTrace.detail;
+    }
+  } catch (e) {
+    console.log('Reasoning load notice:', e);
+  }
+}
+
 // Approve / Reject / Rollback Actions
 async function approveAction(id, live) {
   try {
+    showToast('Executing Agent Action', `Dispatching ${live ? 'live application' : 'dry-run commit'} for patch ${id}...`, true);
     const res = await fetch(`/api/approvals/${id}/approve${live ? '?live=true' : ''}`, { method: 'POST' });
     const d = await res.json();
     appendConsoleLog('log-tag-gitops', 'GITOPS.COMMIT', `Approved patch ${id}: ${d.status || 'Committed'}`);
-    alert(`Patch ${id}: ${d.status || 'Approved'}`);
+    showToast(live ? 'Applied Live to GCP' : 'Committed to Git Branch', `Patch ${id}: ${d.command || d.status || 'Success'}`, true);
     selectedPatch = null;
     loadApprovals();
     loadAudit();
-  } catch(e) { alert('Failed to approve: ' + e); }
+    loadAgentReasoning();
+  } catch(e) {
+    showToast('Action Failed', 'Failed to approve patch: ' + e, false);
+  }
 }
 
 async function rollbackAction(id) {
   try {
+    showToast('Executing Rollback', `Triggering safety rollback pipeline for patch ${id}...`, true);
     const res = await fetch(`/api/approvals/${id}/rollback`, { method: 'POST' });
     const d = await res.json();
     appendConsoleLog('log-tag-gitops', 'GITOPS.ROLLBACK', `Executed rollback for patch ${id}: ${d.command || 'Reverted'}`);
-    alert(`Patch ${id}: Rollback executed successfully!\n${d.command || ''}`);
+    showToast('Rollback Successful', `Patch ${id} safely reverted: ${d.command || 'Infrastructure restored'}`, true);
     selectedPatch = null;
     loadApprovals();
     loadAudit();
-  } catch(e) { alert('Failed to execute rollback: ' + e); }
+    loadAgentReasoning();
+  } catch(e) {
+    showToast('Rollback Failed', 'Failed to execute rollback: ' + e, false);
+  }
 }
 
 async function rejectAction(id) {
@@ -1333,11 +1423,13 @@ async function rejectAction(id) {
     const res = await fetch(`/api/approvals/${id}/reject`, { method: 'POST' });
     const d = await res.json();
     appendConsoleLog('log-tag-gitops', 'GITOPS.REJECT', `Rejected patch ${id}`);
-    alert(`Patch ${id}: ${d.status || 'Rejected'}`);
+    showToast('Patch Rejected', `Proposal ${id} was rejected and removed from active queue.`, false);
     selectedPatch = null;
     loadApprovals();
     loadAudit();
-  } catch(e) { alert('Failed to reject: ' + e); }
+  } catch(e) {
+    showToast('Action Failed', 'Failed to reject: ' + e, false);
+  }
 }
 
 // Fetch Audit
@@ -1534,7 +1626,9 @@ window.addEventListener('DOMContentLoaded', () => {
   try { loadResources(); } catch(e) { console.error(e); }
   try { loadApprovals(); } catch(e) { console.error(e); }
   try { loadAudit(); } catch(e) { console.error(e); }
+  try { loadAgentReasoning(); } catch(e) { console.error(e); }
 });
 </script>
+<div id="toast-container"></div>
 </body>
 </html>
