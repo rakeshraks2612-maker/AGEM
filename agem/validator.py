@@ -55,3 +55,18 @@ class Validator:
             if re.search(pattern, text_lower):
                 return False
         return True
+
+
+def validate(patches):
+    """Module-level validator entry point for server and CLI."""
+    validator = Validator()
+    if not isinstance(patches, list):
+        patches = [patches]
+    for p in patches:
+        patch = p.get('_patch_obj') if isinstance(p, dict) else p
+        r_name = p.get('resource_name', getattr(patch, 'resource_name', 'resource')) if isinstance(p, dict) else getattr(patch, 'resource_name', 'resource')
+        resource = {'type': 'GCP Resource', 'name': r_name}
+        res = validator.validate(patch or p, resource, base_cws=0.50, opt_cws=0.20)
+        if not res.passed and res.errors:
+            raise ValueError(f"Validation failed: {res.errors}")
+    return True

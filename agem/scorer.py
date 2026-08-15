@@ -205,3 +205,22 @@ class Scorer:
             # General GCP resource scoring
             return self.score_cloud_sql(metrics)
 
+
+def compute_cws(resources):
+    """Module-level CWS computation for server and CLI."""
+    scorer = Scorer()
+    for r in resources:
+        score = scorer.score_resource(r)
+        r['cws'] = score.total
+        r['cws_score'] = score.total
+        r['cws_detail'] = {
+            'total': score.total,
+            'cost_waste': score.cost_waste,
+            'performance': score.performance,
+            'security': score.security,
+            'reliability': score.reliability,
+            'dominant_bottleneck': score.dominant_bottleneck,
+            'recommendation': score.recommendation,
+        }
+    return resources
+

@@ -106,3 +106,17 @@ class Executor:
         if patch_text and ('gcloud ' in str(patch_text) or 'bq ' in str(patch_text)):
             return str(patch_text).replace('```', '').replace('bash', '').strip()
         return str(patch_text).strip()
+
+
+def execute(patch, dry_run=True):
+    """Module-level patch execution entry point."""
+    executor = Executor(dry_run=dry_run)
+    patch_obj = patch.get('_patch_obj') if isinstance(patch, dict) else patch
+    return executor.execute(patch_obj or patch)
+
+
+def execute_rollback(patch, dry_run=True):
+    """Module-level rollback execution entry point."""
+    executor = Executor(dry_run=dry_run)
+    patch_obj = patch.get('_patch_obj') if isinstance(patch, dict) else patch
+    return executor.execute_rollback(patch_obj or patch)

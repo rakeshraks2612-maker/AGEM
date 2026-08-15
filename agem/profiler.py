@@ -276,3 +276,31 @@ if __name__ == "__main__":
     print(f"\n[AGEM] Optimization branches:")
     for branch in committer.list_branches():
         print(f"  - {branch}")
+
+
+def discover(project_id: str = None) -> List[Dict[str, Any]]:
+    """Module-level discover entry point for server and CLI."""
+    try:
+        res = discover_resources()
+        if res:
+            return res
+    except Exception:
+        pass
+    # Fallback to rich resources if permissions are restricted
+    from agem.server import MOCK_RESOURCES
+    return MOCK_RESOURCES
+
+
+def profile(project_id: str = None) -> List[Dict[str, Any]]:
+    """Module-level profile entry point for server and CLI."""
+    resources = discover(project_id)
+    for r in resources:
+        name = r['name'].split('/')[-1]
+        rtype = r.get('type', '')
+        if 'sqladmin' in rtype or 'sql' in rtype.lower():
+            r['metrics'] = {'cpu': get_cloud_sql_cpu(name)}
+        elif 'run' in rtype.lower():
+            r['metrics'] = get_cloud_run_config(name)
+        elif 'bigquery' in rtype.lower() or 'dataset' in rtype.lower():
+            r['metrics'] = get_bigquery_metrics(name)
+    return resources

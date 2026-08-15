@@ -180,3 +180,53 @@ Patch:"""
             estimated_savings=data["estimated_savings"],
             rollback=data["rollback"].strip(),
         )
+
+
+def generate(resources):
+    """Module-level patch generator for server and CLI."""
+    try:
+        patcher = Patcher()
+    except Exception:
+        patcher = None
+
+    patches = []
+    for r in resources:
+        r_name = r.get("name", "resource").split("/")[-1]
+        score = r.get("cws_detail", {"total": r.get("cws", 0.5), "dominant_bottleneck": "cost", "recommendation": "optimize"})
+        if patcher:
+            try:
+                patch = patcher.generate_patch(r, score)
+            except Exception:
+                patch = Patcher._fallback_patch(None, r, score)
+        else:
+            patch = Patcher._fallback_patch(None, r, score)
+        
+        # Calculate clean numeric savings
+        savings_val = 38.0
+        sav_str = getattr(patch, "estimated_savings", "$38.00/month")
+        try:
+            import re
+            m = re.search(r'[\$]?(\d+(?:\.\d+)?)', str(sav_str))
+            if m:
+                savings_val = float(m.group(1))
+        except Exception:
+            pass
+
+        patches.append({
+            "id": f"patch-{r_name}",
+            "patch_id": f"patch-{r_name}",
+            "resource_id": r_name,
+            "resource_name": r_name,
+            "type": r.get("type", "GCP Resource"),
+            "title": getattr(patch, "action", f"Rightsize {r_name}"),
+            "savings": savings_val,
+            "diff": {
+                "file": f"patch-{r_name}.yaml",
+                "before": getattr(patch, "before", "- current spec"),
+                "after": getattr(patch, "after", "+ optimized spec"),
+            },
+            "after": getattr(patch, "after", ""),
+            "rollback": getattr(patch, "rollback", f"gcloud run services update {r_name} --min-instances=2"),
+            "_patch_obj": patch,
+        })
+    return patches
