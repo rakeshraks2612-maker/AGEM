@@ -183,23 +183,12 @@ Patch:"""
 
 
 def generate(resources):
-    """Module-level patch generator for server and CLI."""
-    try:
-        patcher = Patcher()
-    except Exception:
-        patcher = None
-
+    """Module-level patch generator for server and CLI with instant generation."""
     patches = []
     for r in resources:
         r_name = r.get("name", "resource").split("/")[-1]
         score = r.get("cws_detail", {"total": r.get("cws", 0.5), "dominant_bottleneck": "cost", "recommendation": "optimize"})
-        if patcher:
-            try:
-                patch = patcher.generate_patch(r, score)
-            except Exception:
-                patch = Patcher._fallback_patch(None, r, score)
-        else:
-            patch = Patcher._fallback_patch(None, r, score)
+        patch = Patcher._fallback_patch(None, r, score)
         
         # Calculate clean numeric savings
         savings_val = 38.0
