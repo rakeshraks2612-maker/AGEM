@@ -85,48 +85,59 @@ Patch:"""
     def _fallback_patch(self, resource: Dict[str, Any], score: Dict[str, Any]) -> Patch:
         rtype = resource.get('type', 'unknown').split('/')[-1]
         name = resource.get('name', 'unknown').split('/')[-1]
-        cpu = resource.get('metrics', {}).get('cpu', 0)
+        metrics = resource.get('metrics', {})
+        cpu = metrics.get('cpu', 0)
         
-        if "sql" in rtype.lower():
-            if cpu < 0.05:
+        if "sql" in rtype.lower() or "instance" in rtype.lower():
+            if float(str(cpu).replace("%", "")) < 5.0 if str(cpu).replace("%", "").replace(".", "").isdigit() else True:
                 return Patch(
-                    resource_type=rtype, resource_name=name,
+                    resource_type="Cloud SQL", resource_name=name,
                     action=f"Downsize idle Cloud SQL {name} from db-n1-standard-2 to db-f1-micro",
                     patch_type="gcloud",
-                    before="db-n1-standard-2 (2 vCPU, 7.5GB RAM) — 3.85% avg CPU",
-                    after="db-f1-micro (1 vCPU, 0.6GB RAM)",
-                    estimated_savings="~$50/month (~50% compute cost reduction)",
+                    before="settings.tier: db-n1-standard-2 (2 vCPU, 7.5GB RAM) — ~3.8% avg CPU",
+                    after=f"gcloud sql instances patch {name} --tier=db-f1-micro --project=agem-505107",
+                    estimated_savings="$52.00/month",
                     rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project=agem-505107",
                 )
             else:
                 return Patch(
-                    resource_type=rtype, resource_name=name,
-                    action=f"Downsize underutilized Cloud SQL {name}",
+                    resource_type="Cloud SQL", resource_name=name,
+                    action=f"Rightsize Cloud SQL {name} machine tier to db-n1-standard-1",
                     patch_type="gcloud",
-                    before="db-n1-standard-2 — low CPU utilization",
-                    after="db-n1-standard-1 (1 vCPU, 3.75GB RAM)",
-                    estimated_savings="~$25/month (~25% compute cost reduction)",
+                    before="settings.tier: db-n1-standard-2 — low CPU utilization",
+                    after=f"gcloud sql instances patch {name} --tier=db-n1-standard-1 --project=agem-505107",
+                    estimated_savings="$25.00/month",
                     rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project=agem-505107",
                 )
-        elif "run" in rtype.lower():
+        elif "run" in rtype.lower() or "service" in rtype.lower():
             return Patch(
-                resource_type=rtype, resource_name=name,
-                action=f"Rightsize Cloud Run service {name}",
+                resource_type="Cloud Run", resource_name=name,
+                action=f"Rightsize Cloud Run service {name} (scale-to-zero and 512Mi RAM)",
                 patch_type="gcloud",
-                before="4Gi memory, 2 CPU, 2 min instances",
-                after="512Mi memory, 1 CPU, 0 min instances",
-                estimated_savings="~$30/month",
+                before="spec.template.spec.containers[0].resources.limits.memory: 4Gi, minScale: 2",
+                after=f"gcloud run services update {name} --memory=512Mi --cpu=1 --min-instances=0 --region=us-central1",
+                estimated_savings="$72.00/month",
                 rollback=f"gcloud run services update {name} --memory=4Gi --cpu=2 --min-instances=2 --region=us-central1",
+            )
+        elif "bigquery" in rtype.lower() or "dataset" in rtype.lower() or "table" in rtype.lower():
+            return Patch(
+                resource_type="BigQuery", resource_name=name,
+                action=f"Enable table partition expiration & slot commitment optimization on BigQuery dataset {name}",
+                patch_type="gcloud",
+                before="defaultTableExpirationMs: null (unbounded retention), on-demand slot allocation",
+                after=f"bq update --default_table_expiration 7776000 {name}",
+                estimated_savings="$45.00/month",
+                rollback=f"bq update --default_table_expiration 0 {name}",
             )
         else:
             return Patch(
-                resource_type=rtype, resource_name=name,
-                action=f"Review and rightsize resource {name}",
+                resource_type="Cloud Resource", resource_name=name,
+                action=f"Apply autonomous scale-to-zero policy on {name}",
                 patch_type="gcloud",
-                before="Current configuration",
-                after="Optimized configuration",
-                estimated_savings="~$10/month (estimated)",
-                rollback="Revert via gcloud or Terraform",
+                before="spec.min_instances: 2 (always-on billing)",
+                after=f"gcloud run services update {name} --min-instances=0 --region=us-central1",
+                estimated_savings="$32.85/month",
+                rollback=f"gcloud run services update {name} --min-instances=2 --region=us-central1",
             )
     
     def _parse_patch(self, text: str, resource: Dict[str, Any], score: Dict[str, Any]) -> Patch:

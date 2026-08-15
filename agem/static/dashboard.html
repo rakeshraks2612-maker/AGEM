@@ -1,12 +1,4 @@
-"""AGEM Cloud Run server with full API backend."""
-import os
-import time
-import traceback
-from flask import Flask, jsonify, request, render_template_string, send_from_directory
-
-app = Flask(__name__)
-
-DASHBOARD_HTML = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -887,7 +879,7 @@ body {
     <div class="log-row">
       <span class="log-time">15:40:01</span>
       <span class="log-tag log-tag-adk">ADK.SUPERVISOR</span>
-      <span class="log-msg">Agent loop initialized. 6 multi-agent modules registered with Cloud Run supervisor.</span>
+      <span class="log-msg">Agent loop initialized. 7 autonomous optimization tools registered with Cloud Run supervisor.</span>
     </div>
     <div class="log-row">
       <span class="log-time">15:40:02</span>
@@ -1244,6 +1236,18 @@ function selectPatch(id) {
   renderProposals();
 }
 
+// Copy Patch Helper
+function copyPatchText(btn) {
+  const box = btn ? btn.closest('.diff-terminal-box') : document.querySelector('.diff-terminal-box');
+  const addLine = box ? box.querySelector('.diff-line-add') : null;
+  const text = addLine ? (addLine.textContent || addLine.innerText) : '';
+  if (navigator.clipboard && text) {
+    navigator.clipboard.writeText(text).then(() => alert('Copied patch to clipboard!')).catch(() => alert('Patch text:\n' + text));
+  } else {
+    alert(text ? 'Patch text:\n' + text : 'No patch text to copy');
+  }
+}
+
 // Render Diff Panel
 function renderDiffPanel(patch) {
   const container = document.getElementById('diff-panel-content');
@@ -1260,7 +1264,6 @@ function renderDiffPanel(patch) {
     const after = diffObj.after || '+ spec.template.spec.containers[0].resources.limits.memory: 512Mi';
     const pTitle = patch.title || patch.resource_id || 'Rightsize GCP Service';
     const pRes = patch.resource_id || patch.id || 'unknown-resource';
-    const escapeAfter = (after || '').replace(/'/g, "\\'").replace(/\n/g, "\\n");
 
     container.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -1281,7 +1284,7 @@ function renderDiffPanel(patch) {
       <div class="diff-terminal-box">
         <div class="diff-terminal-header">
           <span>${filename}</span>
-          <span style="color:var(--primary);cursor:pointer;font-weight:600;" onclick="navigator.clipboard.writeText('${escapeAfter}'); alert('Copied patch to clipboard!')">Copy Patch</span>
+          <span style="color:var(--primary);cursor:pointer;font-weight:600;" onclick="copyPatchText(this)">Copy Patch</span>
         </div>
         <div class="diff-line-del">${before}</div>
         <div class="diff-line-add">${after}</div>
@@ -1290,6 +1293,7 @@ function renderDiffPanel(patch) {
       <div class="action-btn-group">
         <button class="btn-action-base" onclick="approveAction('${patch.id}', false)">Approve & Commit (Dry-Run)</button>
         <button class="btn-action-base btn-action-green" onclick="approveAction('${patch.id}', true)">⚡ Approve & Apply Live</button>
+        <button class="btn-action-base" style="border-color:var(--warning);color:var(--warning);" onclick="rollbackAction('${patch.id}')">⏪ Rollback Patch</button>
         <button class="btn-action-base btn-action-red" onclick="rejectAction('${patch.id}')">Reject Proposal</button>
       </div>
     `;
@@ -1299,7 +1303,7 @@ function renderDiffPanel(patch) {
   }
 }
 
-// Approve / Reject Actions
+// Approve / Reject / Rollback Actions
 async function approveAction(id, live) {
   try {
     const res = await fetch(`/api/approvals/${id}/approve${live ? '?live=true' : ''}`, { method: 'POST' });
@@ -1312,6 +1316,18 @@ async function approveAction(id, live) {
   } catch(e) { alert('Failed to approve: ' + e); }
 }
 
+async function rollbackAction(id) {
+  try {
+    const res = await fetch(`/api/approvals/${id}/rollback`, { method: 'POST' });
+    const d = await res.json();
+    appendConsoleLog('log-tag-gitops', 'GITOPS.ROLLBACK', `Executed rollback for patch ${id}: ${d.command || 'Reverted'}`);
+    alert(`Patch ${id}: Rollback executed successfully!\n${d.command || ''}`);
+    selectedPatch = null;
+    loadApprovals();
+    loadAudit();
+  } catch(e) { alert('Failed to execute rollback: ' + e); }
+}
+
 async function rejectAction(id) {
   try {
     const res = await fetch(`/api/approvals/${id}/reject`, { method: 'POST' });
@@ -1320,6 +1336,7 @@ async function rejectAction(id) {
     alert(`Patch ${id}: ${d.status || 'Rejected'}`);
     selectedPatch = null;
     loadApprovals();
+    loadAudit();
   } catch(e) { alert('Failed to reject: ' + e); }
 }
 
@@ -1352,21 +1369,21 @@ async function loadAudit() {
           <tr>
             <td style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;">${ts}</td>
             <td style="font-weight:600;">${project}</td>
-            <td style="max-width:320px;">Autonomous scan — ${numPatches} patch${numPatches !== 1 ? 'es' : ''} generated${item.dry_run ? ' (dry-run)' : ''}</td>
+            <td style="max-width:320px;">Autonomous scan &mdash; ${numPatches} patch${numPatches !== 1 ? 'es' : ''} generated${item.dry_run ? ' (dry-run)' : ''}</td>
             <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${branchList}">${branchList.split(',')[0] || 'agem/auto-optimize'}</td>
-            <td style="font-weight:700;color:var(--success);">—</td>
+            <td style="font-weight:700;color:var(--success);">&#8212;</td>
             <td><span class="status-tag ${item.dry_run ? 'status-tag-blue' : 'status-tag-green'}">${item.dry_run ? 'dry-run' : 'applied'}</span></td>
           </tr>
         `;
       }
       // Mock audit record
       const savingsVal = item.savings;
-      const savingsStr = typeof savingsVal === 'number' ? '$' + savingsVal.toFixed(2) : (savingsVal || '—');
+      const savingsStr = typeof savingsVal === 'number' ? '$' + savingsVal.toFixed(2) : (savingsVal || '&mdash;');
       return `
         <tr>
           <td style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;">${ts}</td>
-          <td style="font-weight:600;">${item.resource || '—'}</td>
-          <td style="max-width:320px;">${item.action || '—'}</td>
+          <td style="font-weight:600;">${item.resource || '&mdash;'}</td>
+          <td style="max-width:320px;">${item.action || '&mdash;'}</td>
           <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--primary);">${item.branch || 'agem/auto-optimize'}</td>
           <td style="font-weight:700;color:var(--success);">${savingsStr}/month</td>
           <td><span class="status-tag status-tag-green">${item.status || 'committed'}</span></td>
@@ -1521,560 +1538,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-"""
-
-# Load ADK + Core
-try:
-    from agem.agents.supervisor import AGEMSupervisor
-    from agem.agents.approval_queue import ApprovalQueue
-    from agem.agents.tracer import AgentTracer
-    supervisor = AGEMSupervisor()
-    approval_queue = ApprovalQueue()
-    tracer = AgentTracer()
-    ADK_LOADED = True
-except Exception:
-    traceback.print_exc()
-    ADK_LOADED = False
-    supervisor = None
-    approval_queue = None
-    tracer = None
-
-# Core module health
-CORE_MODULES = ["profiler", "scorer", "patcher", "validator", "git_committer", "executor", "state_manager"]
-core_status = {}
-for name in CORE_MODULES:
-    try:
-        __import__("agem." + name, fromlist=[name])
-        core_status[name] = "loaded"
-    except Exception as e:
-        core_status[name] = "error: " + str(e)
-
-# Mock data
-MOCK_RESOURCES = [
-    {"id": "sql-prod-db", "name": "cloud-sql-primary-prod", "type": "Cloud SQL", "region": "us-central1", "tier": "db-n1-standard-2", "cws": 0.38, "wastage": 340.00, "metrics": {"cpu": "3.82%", "memory": "12%", "disk": "8%"}},
-    {"id": "agem-frontend", "name": "auth-service-gateway", "type": "Cloud Run", "region": "us-central1", "tier": "4Gi / 2 vCPU", "cws": 0.42, "wastage": 180.00, "metrics": {"cpu": "5.1%", "memory": "18%", "requests": "120/min"}},
-    {"id": "analytics-warehouse-db", "name": "analytics-warehouse-db", "type": "BigQuery", "region": "us-central1", "tier": "Slots 2000", "cws": 0.48, "wastage": 650.00, "metrics": {"slots": "12%", "query_time": "2.3s", "bytes": "45GB"}},
-    {"id": "sql-analytics-replica", "name": "cloud-sql-analytics-replica", "type": "Cloud SQL", "region": "europe-west1", "tier": "db-n1-standard-4", "cws": 0.45, "wastage": 480.00, "metrics": {"cpu": "6.2%", "memory": "15%", "disk": "22%"}},
-    {"id": "payments-processor-api", "name": "payments-processor-api", "type": "Cloud Run", "region": "europe-west1", "tier": "8Gi / 4 vCPU", "cws": 0.51, "wastage": 240.00, "metrics": {"cpu": "8.4%", "memory": "22%", "requests": "85/min"}},
-    {"id": "bigquery-logs-sink", "name": "bigquery-logs-sink", "type": "BigQuery", "region": "asia-east1", "tier": "Slots 500", "cws": 0.35, "wastage": 210.00, "metrics": {"slots": "5%", "query_time": "1.1s", "bytes": "12GB"}},
-    {"id": "sql-staging-db", "name": "cloud-sql-staging-db", "type": "Cloud SQL", "region": "us-east1", "tier": "db-n1-standard-2", "cws": 0.32, "wastage": 320.00, "metrics": {"cpu": "2.1%", "memory": "9%", "disk": "6%"}},
-    {"id": "image-resizer-worker", "name": "image-resizer-worker", "type": "Cloud Run", "region": "us-central1", "tier": "4Gi / 2 vCPU", "cws": 0.28, "wastage": 140.00, "metrics": {"cpu": "3.5%", "memory": "11%", "requests": "40/min"}},
-    {"id": "redis-cache-cluster", "name": "redis-cache-cluster", "type": "Memorystore", "region": "us-central1", "tier": "M2", "cws": 0.55, "wastage": 420.00, "metrics": {"memory": "18%", "connections": "45", "evictions": "0"}},
-    {"id": "pubsub-events", "name": "pubsub-events", "type": "Pub/Sub", "region": "global", "tier": "Standard", "cws": 0.22, "wastage": 85.00, "metrics": {"throughput": "1.2k/s", "backlog": "12ms", "retention": "7d"}},
-    {"id": "dataflow-etl", "name": "dataflow-etl", "type": "Dataflow", "region": "us-central1", "tier": "n1-standard-4", "cws": 0.41, "wastage": 380.00, "metrics": {"cpu": "7.8%", "memory": "14%", "workers": "2"}},
-    {"id": "gke-primary", "name": "gke-primary", "type": "GKE", "region": "us-central1", "tier": "e2-standard-4", "cws": 0.33, "wastage": 290.00, "metrics": {"cpu": "4.5%", "memory": "10%", "pods": "18/100"}},
-    {"id": "cloud-functions-api", "name": "cloud-functions-api", "type": "Cloud Functions", "region": "us-east1", "tier": "1GB / 1vCPU", "cws": 0.29, "wastage": 95.00, "metrics": {"cpu": "6.2%", "memory": "16%", "invocations": "230/min"}},
-    {"id": "spanner-prod", "name": "spanner-prod", "type": "Cloud Spanner", "region": "nam3", "tier": "1000 PU", "cws": 0.47, "wastage": 720.00, "metrics": {"cpu": "9.1%", "memory": "13%", "latency": "4ms"}},
-    {"id": "composer-dag", "name": "composer-dag", "type": "Cloud Composer", "region": "us-central1", "tier": "small", "cws": 0.39, "wastage": 560.00, "metrics": {"cpu": "5.5%", "memory": "12%", "dags": "8"}},
-]
-
-MOCK_PATCHES = [
-    {
-        "id": "sql-prod-db",
-        "patch_id": "sql-prod-db",
-        "resource_id": "sql-prod-db",
-        "resource_name": "sql-prod-db",
-        "type": "Instance",
-        "title": "Downsize idle Cloud SQL sql-prod-db from db-n1-standard-2 to db-f1-micro",
-        "savings": 52.00,
-        "timestamp": 1786509499,
-        "diff": {
-            "file": "patch-sql-prod-db.yaml",
-            "before": "- settings.tier: db-n1-standard-2 (2 vCPU, 7.5GB RAM)",
-            "after": "+ settings.tier: db-f1-micro (1 vCPU, 0.6GB RAM)"
-        }
-    },
-    {
-        "id": "agem-frontend",
-        "patch_id": "agem-frontend",
-        "resource_id": "agem-frontend",
-        "resource_name": "agem-frontend",
-        "type": "Service",
-        "title": "Rightsize Cloud Run service agem-frontend",
-        "savings": 38.00,
-        "timestamp": 1786509499,
-        "diff": {
-            "file": "patch-agem-frontend.yaml",
-            "before": "- spec.template.spec.containers[0].resources.limits.memory: 4Gi",
-            "after": "+ spec.template.spec.containers[0].resources.limits.memory: 512Mi"
-        }
-    }
-]
-
-MOCK_AUDIT = [
-    {"timestamp": "12/08/2026, 13:25:21", "resource": "sql-prod-db", "action": "Downsize idle Cloud SQL sql-prod-db from db-n1-standard-2 to db-f1-micro", "branch": "agem/auto-optimize-sql-prod-db-20260812-132521", "savings": 52.00, "status": "committed"},
-    {"timestamp": "12/08/2026, 10:08:19", "resource": "agem-server", "action": "Reduce minimum instances to 0 and enable CPU throttling outside of request processing to eliminate idle billing.", "branch": "agem/auto-optimize-agem-server-1786509499", "savings": 32.85, "status": "committed"},
-    {"timestamp": "12/08/2026, 10:08:14", "resource": "agem-demo-service", "action": "Enable CPU throttling (allocate CPU only during request processing) and set min-instances to 0 to eliminate idle charges.", "branch": "agem/auto-optimize-agem-demo-service-1786509493", "savings": 25.00, "status": "committed"},
-    {"timestamp": "12/08/2026, 10:08:07", "resource": "agem-demo-db", "action": "Rightsize Cloud SQL instance machine tier from 4 vCPUs / 15 GB RAM (db-custom-4-15360)", "branch": "agem/auto-optimize-agem-demo-db-1786509487", "savings": 25.00, "status": "committed"},
-    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-server", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-server-1786508297", "savings": 78.00, "status": "committed"},
-    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-demo-service", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-demo-service-1786508297", "savings": 78.00, "status": "committed"},
-    {"timestamp": "12/08/2026, 09:48:17", "resource": "agem-demo-db", "action": "Reduce Cloud Run min-instances from 2 to 0, RAM from 4Gi to 512Mi", "branch": "agem/auto-optimize-agem-demo-db-1786508297", "savings": 78.00, "status": "committed"},
-]
-
-MOCK_BRANCHES = [
-    {"name": "agem/auto-optimize-sql-prod-db", "status": "Draft"},
-    {"name": "agem/auto-optimize-agem-frontend", "status": "Draft"},
-    {"name": "agem/auto-optimize-sql-prod-db-20260812-132521", "status": "Merged"},
-    {"name": "agem/auto-optimize-agem-server-1786509499", "status": "Merged"},
-    {"name": "agem/auto-optimize-agem-demo-service-1786509493", "status": "Merged"},
-    {"name": "agem/auto-optimize-agem-demo-db-1786509487", "status": "Merged"},
-]
-
-# Firestore helpers
-try:
-    from google.cloud import firestore
-    _fs_db = firestore.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"))
-    _FS_OK = True
-except Exception:
-    _fs_db = None
-    _FS_OK = False
-
-
-def _fs_save(collection, doc_id, data):
-    if _FS_OK and _fs_db:
-        import threading
-        def _bg_fs_save():
-            try:
-                _fs_db.collection(collection).document(doc_id).set(data)
-            except Exception:
-                pass
-        threading.Thread(target=_bg_fs_save, daemon=True).start()
-
-
-def _fs_load_all(collection, limit=100):
-    if _FS_OK and _fs_db:
-        try:
-            docs = _fs_db.collection(collection).order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit).stream()
-            return [d.to_dict() for d in docs]
-        except Exception:
-            pass
-    return []
-
-
-def _get_dashboard_html():
-    possible_paths = [
-        os.path.join(os.path.dirname(__file__), "static", "dashboard.html"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "dashboard.html"),
-        os.path.join(os.getcwd(), "static", "dashboard.html"),
-        os.path.join(os.getcwd(), "agem", "static", "dashboard.html"),
-        "/app/static/dashboard.html",
-        "/app/agem/static/dashboard.html",
-    ]
-    for p in possible_paths:
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    return f.read()
-            except Exception:
-                pass
-    return DASHBOARD_HTML
-
-
-@app.route("/")
-@app.route("/dashboard")
-def index():
-    from flask import Response
-    return Response(_get_dashboard_html(), mimetype="text/html")
-
-
-@app.route("/api/health")
-def api_health():
-    return jsonify({
-        "status": "AGEM is live",
-        "mode": "cloud",
-        "project": os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"),
-        "adk_agents_loaded": ADK_LOADED,
-        "supervisor_ready": ADK_LOADED,
-        "approval_queue_ready": ADK_LOADED,
-        "tracer_ready": ADK_LOADED,
-        "core_modules": core_status,
-    })
-
-
-@app.route("/api/resources", methods=["GET"])
-def api_resources():
-    return jsonify({"resources": MOCK_RESOURCES, "count": len(MOCK_RESOURCES), "source": "live"})
-
-
-@app.route("/api/approvals", methods=["GET"])
-def api_approvals():
-    try:
-        if not ADK_LOADED:
-            return jsonify({"pending": MOCK_PATCHES, "count": len(MOCK_PATCHES)}), 200
-        pending = approval_queue.list_pending()
-        if not pending:
-            for p in MOCK_PATCHES:
-                approval_queue.add(p)
-            pending = approval_queue.list_pending()
-        return jsonify({"pending": pending, "count": len(pending)})
-    except Exception:
-        return jsonify({"pending": MOCK_PATCHES, "count": len(MOCK_PATCHES)})
-
-
-@app.route("/api/scan", methods=["GET", "POST"])
-def api_scan():
-    if not ADK_LOADED:
-        return jsonify({"error": "ADK not loaded"}), 503
-
-    dry_run = request.args.get("dry_run", "true").lower() == "true"
-    force = request.args.get("force", "false").lower() == "true"
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
-
-    tracer.record("[SCAN_START]", "dry_run=" + str(dry_run) + " force=" + str(force), "ok")
-    steps = []
-    discovered = []
-
-    # 1. DISCOVER
-    try:
-        from agem import profiler
-        discovered = profiler.discover(project)
-        msg = "Discovered " + str(len(discovered)) + " resources via Cloud Asset Inventory"
-        steps.append({"step": "discover", "result": msg})
-        tracer.record("[DISCOVER]", msg, "ok")
-    except Exception as e:
-        discovered = MOCK_RESOURCES
-        msg = "Discovered " + str(len(discovered)) + " resources via Cloud Asset Inventory"
-        steps.append({"step": "discover", "result": msg})
-        tracer.record("[DISCOVER]", str(e), "warning")
-
-    # 2. PROFILE
-    try:
-        from agem import profiler
-        profiled = profiler.profile(project)
-        msg = "Profiled 7-day metrics for " + str(len(profiled)) + " resources"
-        steps.append({"step": "profile", "result": msg})
-        tracer.record("[PROFILE]", msg, "ok")
-    except Exception as e:
-        msg = "Profiled 7-day metrics for 3 resources"
-        steps.append({"step": "profile", "result": msg})
-        tracer.record("[PROFILE]", str(e), "warning")
-
-    # 3. SCORE
-    try:
-        from agem import scorer
-        scorer.compute_cws(discovered)
-        msg = "Computed CWS scores for " + str(len(discovered)) + " resources"
-        steps.append({"step": "score", "result": msg})
-        tracer.record("[SCORE]", msg, "ok")
-    except Exception as e:
-        msg = "Computed CWS scores for 3 resources"
-        steps.append({"step": "score", "result": msg})
-        tracer.record("[SCORE]", str(e), "warning")
-
-    # 4. PATCH
-    patches_generated = []
-    try:
-        from agem import patcher
-        patches_generated = patcher.generate(discovered)
-        msg = "Generated optimization patches for " + str(len(patches_generated)) + " resources"
-        steps.append({"step": "patch", "result": msg})
-        tracer.record("[PATCH]", msg, "ok")
-    except Exception as e:
-        patches_generated = MOCK_PATCHES
-        msg = "Generated optimization patches for " + str(len(patches_generated)) + " resources"
-        steps.append({"step": "patch", "result": msg})
-        tracer.record("[PATCH]", str(e), "warning")
-
-    for p in patches_generated:
-        p["dry_run"] = dry_run
-        approval_queue.add(p)
-
-    # 4.5 ADK AGENT REASONING (Google ADK Session & Runner Orchestration)
-    try:
-        from google.adk.runners import Runner
-        from google.adk.sessions import InMemorySessionService
-        from google.genai import types
-
-        active_agent = supervisor.agent if (supervisor and hasattr(supervisor, "agent")) else None
-        if not active_agent:
-            from google.adk.agents import Agent
-            active_agent = Agent(
-                name="agem_supervisor",
-                model="gemini-2.5-flash",
-                description="Autonomous GCP optimization supervisor"
-            )
-
-        patch_summary = "\n".join([
-            f"- {p.get('resource_name', p.get('resource_id', 'resource'))}: {p.get('title', 'Rightsize')} (savings: ${p.get('savings', 0)}/mo)"
-            for p in patches_generated
-        ])
-
-        session_service = InMemorySessionService()
-        session = session_service.create_session(app_name="agem", user_id="admin")
-        runner = Runner(agent=active_agent, app_name="agem", session_service=session_service)
-
-        content = types.Content(
-            role="user",
-            parts=[types.Part(text=f"""Review these {len(patches_generated)} optimization patches for project {project}:
-
-{patch_summary}
-
-Rank them by risk vs savings. Identify any patch that should NOT be applied automatically. Return your reasoning as a structured plan.""")]
-        )
-
-        agent_reasoning = []
-        for event in runner.run(user_id="admin", session_id=session.id, new_message=content):
-            if event.content and event.content.parts:
-                agent_reasoning.append(event.content.parts[0].text)
-
-        reasoning_text = "\n".join(agent_reasoning) if agent_reasoning else f"AGEM Supervisor prioritized {len(patches_generated)} patches by risk vs savings."
-        if tracer:
-            tracer.record("[ADK_REASONING]", reasoning_text[:500], "ok")
-        steps.append({"step": "adk_reasoning", "result": f"AGEM Supervisor analyzed {len(patches_generated)} patches via ADK Runner & SessionService: " + reasoning_text[:120]})
-    except Exception as e:
-        if tracer:
-            tracer.record("[ADK_REASONING]", f"ADK Runner notice: {e}", "warning")
-        steps.append({"step": "adk_reasoning", "result": f"AGEM Supervisor analyzed {len(patches_generated)} patches and generated risk vs savings priority matrix"})
-
-    # 5. VALIDATE
-    try:
-        from agem import validator
-        validator.validate(patches_generated)
-        msg = "Safety checks passed for all patches"
-        steps.append({"step": "validate", "result": msg})
-        tracer.record("[VALIDATE]", msg, "ok")
-    except Exception as e:
-        msg = "Safety checks passed for all patches"
-        steps.append({"step": "validate", "result": msg})
-        tracer.record("[VALIDATE]", str(e), "warning")
-
-    # 6. COMMIT
-    branches_created = []
-    try:
-        from agem import git_committer
-        for p in patches_generated:
-            branch = git_committer.commit(p)
-            branches_created.append(branch)
-            _fs_save("agem_branches", branch.replace("/", "-"), {"name": branch, "status": "Draft", "timestamp": time.time()})
-        msg = "Committed " + str(len(branches_created)) + " patches to isolated git branches"
-        steps.append({"step": "commit", "result": msg})
-        tracer.record("[COMMIT]", msg, "ok")
-    except Exception as e:
-        for p in patches_generated:
-            branch = "agem/auto-optimize-" + p["resource_id"] + "-" + str(int(time.time()))
-            branches_created.append(branch)
-            _fs_save("agem_branches", branch.replace("/", "-"), {"name": branch, "status": "Draft", "timestamp": time.time()})
-        msg = "Committed patches to isolated git branches"
-        steps.append({"step": "commit", "result": msg})
-        tracer.record("[COMMIT]", str(e), "warning")
-
-    # 7. EXECUTE
-    if dry_run:
-        steps.append({"step": "execute", "result": "Skipped (dry_run=true)"})
-        tracer.record("[EXECUTE]", "Skipped dry_run", "ok")
-    else:
-        try:
-            from agem import executor
-            for p in patches_generated:
-                executor.execute(p, dry_run=False)
-            msg = "Applied " + str(len(patches_generated)) + " patches live"
-            steps.append({"step": "execute", "result": msg})
-            tracer.record("[EXECUTE]", msg, "ok")
-        except Exception as e:
-            msg = "Live execution attempted"
-            steps.append({"step": "execute", "result": msg})
-            tracer.record("[EXECUTE]", str(e), "warning")
-
-    _fs_save("agem_audit", "scan-" + str(int(time.time())), {
-        "timestamp": time.time(),
-        "project": project,
-        "dry_run": dry_run,
-        "resources_scanned": len(discovered),
-        "patches_generated": len(patches_generated),
-        "branches": branches_created,
-    })
-
-    tracer.record("[SCAN_FINISH]", "Autonomous scan complete. Patches queued for approval.", "ok")
-
-    res_data = {
-        "status": "scan completed",
-        "dry_run": dry_run,
-        "force": force,
-        "supervisor": supervisor.agent.name if supervisor else "agem_supervisor",
-        "steps": steps,
-        "queued": [p.get("id") for p in patches_generated],
-        "project": project,
-    }
-
-    wants_html = "text/html" in request.headers.get("Accept", "") and request.args.get("format") != "json"
-    if wants_html:
-        import json
-        steps_html = ""
-        for i, s in enumerate(steps):
-            steps_html += f'<div class="step-item"><div class="step-icon">✓</div><div><div class="step-title">Stage {i+1}: {s["step"]}</div><div class="step-result">{s["result"]}</div></div></div>'
-        json_str = json.dumps(res_data, indent=2)
-        sup_name = res_data["supervisor"]
-        report_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AGEM - Autonomous Scan Execution Report</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {{ --primary: #1a73e8; --bg-app: #f8fafc; --bg-card: #ffffff; --border-color: #e2e8f0; --text-primary: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8; --success: #10b981; --radius-md: 12px; }}
-    body {{ font-family: 'Inter', sans-serif; background-color: var(--bg-app); color: var(--text-primary); margin: 0; padding: 40px 20px; display: flex; justify-content: center; }}
-    .container {{ max-width: 860px; width: 100%; }}
-    .header-card {{ background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 28px 32px; border-radius: var(--radius-md); margin-bottom: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12); display: flex; justify-content: space-between; align-items: center; }}
-    .badge-live {{ background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }}
-    .pulse-dot {{ width: 8px; height: 8px; background: #34d399; border-radius: 50%; box-shadow: 0 0 8px #34d399; }}
-    .card {{ background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }}
-    .step-item {{ display: flex; align-items: flex-start; gap: 16px; padding: 16px 0; border-bottom: 1px solid #f1f5f9; }}
-    .step-item:last-child {{ border-bottom: none; }}
-    .step-icon {{ width: 28px; height: 28px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }}
-    .step-title {{ font-weight: 700; font-size: 13px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; }}
-    .step-result {{ font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }}
-    pre {{ background: #0f172a; color: #38bdf8; font-family: 'JetBrains Mono', monospace; padding: 20px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin: 0; line-height: 1.6; }}
-    .btn {{ background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s; }}
-    .btn-outline {{ background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); }}
-    .btn-outline:hover {{ background: #f1f5f9; color: var(--text-primary); }}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header-card">
-      <div>
-        <div style="font-size:12px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Google Cloud Project: {project}</div>
-        <div style="font-size:22px; font-weight:700; margin-top:4px;">AGEM Autonomous Loop Report</div>
-        <div style="font-size:13px; color:#cbd5e1; margin-top:4px;">Supervisor: {sup_name} | Engine: Google ADK v2.6.3</div>
-      </div>
-      <div class="badge-live">
-        <span class="pulse-dot"></span> Scan Complete
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <div>
-          <div style="font-size:16px; font-weight:700; color:var(--text-primary);">7-Stage Autonomous Execution Pipeline</div>
-          <div style="font-size:12px; color:var(--text-muted);">Real-time execution telemetry across Google Cloud Asset Inventory, Vertex AI & GitOps</div>
-        </div>
-        <a href="/dashboard" class="btn btn-outline">📊 Return to Dashboard</a>
-      </div>
-
-      <div class="step-list">
-        {steps_html}
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="font-size:15px; font-weight:700; color:var(--text-primary);">Raw JSON API Response</div>
-        <a href="/api/scan?dry_run=true&format=json" class="btn btn-outline" style="padding:6px 12px; font-size:12px;">View Raw JSON Endpoint</a>
-      </div>
-      <pre>{json_str}</pre>
-    </div>
-  </div>
-</body>
-</html>"""
-        return report_html
-
-    return jsonify(res_data)
-
-
-
-
-
-@app.route("/api/approvals/<patch_id>/approve", methods=["POST"])
-def api_approve(patch_id):
-    if not ADK_LOADED:
-        return jsonify({"error": "ADK not loaded"}), 503
-    live = request.args.get("live", "false").lower() == "true"
-    
-    patch = approval_queue.get(patch_id)
-    ok = approval_queue.approve(patch_id)
-    if not ok and not patch:
-        return jsonify({"error": f"Patch {patch_id} not found"}), 404
-        
-    tracer.record("[APPROVAL]", f"{patch_id} approved (live={live})", "ok")
-    
-    if live:
-        try:
-            from agem import executor
-            patch_obj = patch or approval_queue.get(patch_id) or {"resource_id": patch_id, "title": f"Rightsize {patch_id}"}
-            exec_res = executor.execute(patch_obj, dry_run=False)
-            tracer.record("[EXECUTE]", f"{patch_id} executed live: {exec_res.stdout or exec_res.command}", "ok")
-            return jsonify({
-                "status": "approved and applied live",
-                "patch_id": patch_id,
-                "command": exec_res.command,
-                "output": exec_res.stdout
-            })
-        except Exception as e:
-            tracer.record("[EXECUTE]", f"{patch_id} execution notice: {e}", "warning")
-            return jsonify({
-                "status": "approved and applied live (simulated)",
-                "patch_id": patch_id,
-                "command": f"gcloud run services update {patch_id} --min-instances=0"
-            })
-            
-    return jsonify({"status": "approved (dry-run)", "patch_id": patch_id})
-
-
-@app.route("/api/approvals/<patch_id>/reject", methods=["POST"])
-def api_reject(patch_id):
-    if not ADK_LOADED:
-        return jsonify({"error": "ADK not loaded"}), 503
-    patch = approval_queue.get(patch_id)
-    ok = approval_queue.reject(patch_id)
-    if not ok and not patch:
-        return jsonify({"error": f"Patch {patch_id} not found"}), 404
-    tracer.record("[APPROVAL]", patch_id + " rejected", "ok")
-    return jsonify({"status": "rejected", "patch_id": patch_id})
-
-
-@app.route("/api/approvals/<patch_id>/rollback", methods=["POST"])
-def api_rollback(patch_id):
-    if not ADK_LOADED:
-        return jsonify({"error": "ADK not loaded"}), 503
-    patch = approval_queue.get(patch_id)
-    if not patch:
-        return jsonify({"error": f"Patch {patch_id} not found"}), 404
-    
-    try:
-        from agem import executor
-        patch_obj = patch or {"resource_id": patch_id, "title": f"Rollback {patch_id}"}
-        exec_res = executor.execute_rollback(patch_obj)
-        approval_queue.rollback(patch_id)
-        tracer.record("[ROLLBACK]", f"{patch_id} rolled back: {exec_res.stdout or exec_res.command}", "ok")
-        return jsonify({
-            "status": "rolled back",
-            "patch_id": patch_id,
-            "command": exec_res.command,
-            "output": exec_res.stdout
-        })
-    except Exception as e:
-        tracer.record("[ROLLBACK]", f"{patch_id} rollback notice: {e}", "warning")
-        return jsonify({
-            "status": "rolled back (simulated)",
-            "patch_id": patch_id,
-            "command": f"gcloud run services update {patch_id} --min-instances=2"
-        })
-
-
-@app.route("/api/audit", methods=["GET"])
-def api_audit():
-    fs_data = _fs_load_all("agem_audit", 100)
-    if fs_data:
-        return jsonify({"history": fs_data, "count": len(fs_data)})
-    return jsonify({"history": MOCK_AUDIT, "count": len(MOCK_AUDIT), "source": "mock"})
-
-
-@app.route("/api/branches", methods=["GET"])
-def api_branches():
-    fs_data = _fs_load_all("agem_branches", 50)
-    if fs_data:
-        return jsonify({"branches": fs_data, "count": len(fs_data)})
-    return jsonify({"branches": MOCK_BRANCHES, "count": len(MOCK_BRANCHES), "source": "mock"})
-
-
-@app.route("/api/traces", methods=["GET"])
-def api_traces():
-    if not ADK_LOADED:
-        return jsonify({"traces": [], "error": "ADK not loaded"}), 503
-    return jsonify({"traces": tracer.get_traces(100)})
-
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

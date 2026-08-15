@@ -1,3 +1,11 @@
+## Hackathon Submission
+- **Track:** Taskmaster — All Things Agentic Hackathon 2026
+- **Agent Framework:** Google ADK (Agent Development Kit) v2.6.3
+- **LLM:** Gemini 2.5 Flash via Vertex AI
+- **Cloud:** Cloud Run, Firestore, Cloud Asset Inventory, Cloud Monitoring
+- **Live Demo:** https://agem-server-548675820878.us-central1.run.app/dashboard
+- **Repo:** https://github.com/rakeshraks2612-maker/AGEM
+
 # AGEM — Autonomous Google-powered Efficiency Manager
 
 **Autonomous Closed-Loop Cloud Optimization Agent for Google Cloud Platform**
