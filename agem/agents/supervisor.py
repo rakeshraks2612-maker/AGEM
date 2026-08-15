@@ -87,7 +87,7 @@ class AGEMSupervisor:
     def __init__(self):
         self.agent = Agent(
             name="agem_supervisor",
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             description="Autonomous GCP optimization supervisor",
             instruction=(
                 "You are AGEM Supervisor. Orchestrate: discover -> profile -> score -> patch -> validate -> commit -> execute. "

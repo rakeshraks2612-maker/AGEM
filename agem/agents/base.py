@@ -7,7 +7,7 @@ class BaseAGEMAgent:
         self.name = name
         self.agent = Agent(
             name=name,
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             description=instruction,
             instruction=instruction,
             tools=tools or [],
