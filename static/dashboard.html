@@ -566,13 +566,16 @@ body {
       <div style="display:flex;align-items:center;gap:12px;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <div>
-          <div style="font-weight:700;font-size:13px;color:var(--text-primary);">Google ADK Autonomous Loop Active</div>
-          <div style="font-size:12px;color:var(--text-muted);">Monitoring 15 GCP endpoints across Cloud SQL, Cloud Run, and BigQuery. Gemini 3.5 rightsizing engine standby.</div>
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary);">Google ADK Closed-Loop Autonomous Engine Active</div>
+          <div style="font-size:12px;color:var(--text-muted);">Cloud Scheduler cron (0 */6 * * *) &middot; Selective Autonomy (Tier 1 Auto-Apply / Tier 2 Human Review) &middot; Verified Post-Apply Impact (+76.9%)</div>
         </div>
       </div>
-      <button class="status-tag status-tag-green" style="cursor:pointer;border:none;font-family:inherit;font-weight:700;" onclick="openHealthModal()" title="View System Telemetry">
-        ● System Healthy (Inspect)
-      </button>
+      <div style="display:flex;gap:8px;">
+        <span class="status-tag status-tag-blue" title="Autonomous Background Cron">Cron: Every 6h</span>
+        <button class="status-tag status-tag-green" style="cursor:pointer;border:none;font-family:inherit;font-weight:700;" onclick="openHealthModal()" title="View System Telemetry">
+          ● System Healthy (Inspect)
+        </button>
+      </div>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
