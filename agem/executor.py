@@ -35,8 +35,9 @@ class Executor:
             )
         
         # Actually execute
+        import shlex
         result = subprocess.run(
-            command.split(),
+            shlex.split(command),
             capture_output=True,
             text=True,
             timeout=300,
@@ -75,8 +76,9 @@ class Executor:
                 command=command,
             )
         
+        import shlex
         result = subprocess.run(
-            command.split(),
+            shlex.split(command),
             capture_output=True,
             text=True,
             timeout=300,

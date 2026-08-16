@@ -1705,6 +1705,7 @@ def api_health():
         "gemini_supported_models": ["gemini-3.5-flash", "gemini-3.6-flash"],
         "project": os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"),
         "mode": "autonomous_closed_loop",
+        "firestore_status": "connected" if _FS_OK else "local_memory",
         "last_scan": last_scan_time,
         "resources_managed": len(MOCK_RESOURCES),
         "metrics": {

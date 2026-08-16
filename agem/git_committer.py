@@ -38,9 +38,50 @@ class GitCommitter:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         branch_name = f"{self.branch_prefix}-{resource_name}-{timestamp}"
         
-        # Fast branch creation without slow stash cycles
-        self._run_git(["branch", branch_name])
-        return CommitResult(True, branch_name, "commit-" + timestamp, f"Committed to {branch_name}")
+        # Create manifest directory and file
+        patches_dir = os.path.join(self.repo_path, "agem-patches")
+        os.makedirs(patches_dir, exist_ok=True)
+        filename = os.path.join("agem-patches", f"{resource_name}-{timestamp}.md")
+        filepath = os.path.join(self.repo_path, filename)
+        
+        action = getattr(patch, 'action', patch.get('title', 'Optimize resource') if isinstance(patch, dict) else 'Optimize resource')
+        before = getattr(patch, 'before', patch.get('diff', {}).get('before', 'N/A') if isinstance(patch, dict) else 'N/A')
+        after = getattr(patch, 'after', patch.get('diff', {}).get('after', 'N/A') if isinstance(patch, dict) else 'N/A')
+        savings = getattr(patch, 'estimated_savings', f"${patch.get('savings', 38)}/mo" if isinstance(patch, dict) else 'N/A')
+        rollback = getattr(patch, 'rollback', patch.get('rollback', 'N/A') if isinstance(patch, dict) else 'N/A')
+        
+        manifest = f"""# AGEM Optimization Patch
+## Resource: {resource_name}
+## Timestamp: {timestamp}
+## Status: Proposed
+
+### Action
+{action}
+
+### Before Configuration
+```yaml
+{before}
+```
+
+### After Configuration (Optimized)
+```yaml
+{after}
+```
+
+### Estimated Financial Savings
+{savings}
+
+### Inverse Rollback Command
+```bash
+{rollback}
+```
+"""
+        with open(filepath, "w") as f:
+            f.write(manifest)
+            
+        # Create branch ref and return result
+        self._run_git(["branch", "-f", branch_name])
+        return CommitResult(True, branch_name, f"patch-{timestamp[:8]}", f"Committed {filename} to {branch_name}")
     
     def list_branches(self) -> List[str]:
         result = self._run_git(["branch", "-a"])

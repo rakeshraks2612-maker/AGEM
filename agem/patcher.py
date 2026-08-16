@@ -62,22 +62,20 @@ Patch:"""
     def generate_patch(self, resource: Dict[str, Any], score: Dict[str, Any]) -> Patch:
         prompt = self._build_prompt(resource, score)
         
-        max_retries = 3
+        max_retries = 2
         for attempt in range(max_retries):
             try:
                 response = self.client.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model="gemini-3.5-flash",
                     contents=prompt,
                     config=types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024),
                 )
-                return self._parse_patch(response.text, resource, score)
+                if response and response.text:
+                    return self._parse_patch(response.text, resource, score)
             except Exception as e:
                 if "429" in str(e) or "quota" in str(e).lower():
-                    wait = 30 * (attempt + 1)
-                    print(f"    [AGEM] Rate limited. Retrying in {wait}s... ({attempt+1}/{max_retries})")
-                    time.sleep(wait)
+                    time.sleep(1)
                 else:
-                    print(f"    [AGEM] Gemini error: {e}. Using fallback.")
                     break
         
         return self._fallback_patch(resource, score)
@@ -183,14 +181,30 @@ Patch:"""
 
 
 def generate(resources):
-    """Module-level patch generator for server and CLI with instant generation."""
+    """Module-level patch generator for server and CLI with Gemini generation & safe fallback."""
+    try:
+        patcher = Patcher()
+    except Exception:
+        patcher = None
+
     patches = []
     for r in resources:
         r_name = r.get("name", "resource").split("/")[-1]
         score = r.get("cws_detail", {"total": r.get("cws", 0.5), "dominant_bottleneck": "cost", "recommendation": "optimize"})
-        patch = Patcher._fallback_patch(None, r, score)
         
-        # Calculate clean numeric savings
+        patch = None
+        if patcher:
+            try:
+                patch = patcher.generate_patch(r, score)
+            except Exception as e:
+                print(f"[AGEM] Gemini patch generation fallback for {r_name}: {e}")
+                patch = patcher._fallback_patch(r, score)
+        else:
+            # Fallback instance
+            p_fallback = Patcher.__new__(Patcher)
+            patch = p_fallback._fallback_patch(r, score)
+        
+        # Calculate clean numeric savings based on resource type
         savings_val = 38.0
         sav_str = getattr(patch, "estimated_savings", "$38.00/month")
         try:

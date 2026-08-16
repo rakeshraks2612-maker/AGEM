@@ -48,22 +48,22 @@ class Scorer:
         performance = min(1.0, max(0.0, 1.0 - (cpu / self.THRESHOLDS["min_cpu"])))
         
         # 3. Security Risk: public IP exposed, SSL enforcement, unencrypted disk
-        has_public_ip = metrics.get("has_public_ip", True)
-        ssl_enforced = metrics.get("ssl_enforced", False)
+        has_public_ip = metrics.get("has_public_ip", None)
+        ssl_enforced = metrics.get("ssl_enforced", None)
         security = 0.0
-        if has_public_ip:
+        if has_public_ip is not None and has_public_ip:
             security += 0.50
-        if not ssl_enforced:
+        if ssl_enforced is not None and not ssl_enforced:
             security += 0.30
         security = min(1.0, security)
         
         # 4. Reliability Risk: automated backups disabled, single zone
-        automated_backups = metrics.get("automated_backups", False)
-        multi_zone = metrics.get("multi_zone", False)
+        automated_backups = metrics.get("automated_backups", None)
+        multi_zone = metrics.get("multi_zone", None)
         reliability = 0.0
-        if not automated_backups:
+        if automated_backups is not None and not automated_backups:
             reliability += 0.50
-        if not multi_zone:
+        if multi_zone is not None and not multi_zone:
             reliability += 0.30
         reliability = min(1.0, reliability)
         
