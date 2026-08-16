@@ -306,6 +306,7 @@ body {
 .status-tag-green { background: var(--success-light); color: var(--success); border: 1px solid var(--success-border); }
 .status-tag-blue { background: var(--primary-light); color: var(--primary); }
 .status-tag-orange { background: var(--warning-light); color: var(--warning); }
+.status-tag-purple { background: rgba(147, 51, 234, 0.15); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.3); }
 
 /* Pipeline Section */
 .pipeline-wrapper { padding: 22px; }
@@ -482,6 +483,13 @@ body {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Savings Audit
           </div>
+        </div>
+        <div class="nav-link" onclick="switchTab('traces')">
+          <div class="nav-link-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Agent Traces
+          </div>
+          <span class="badge-pill badge-pill-blue" id="nav-traces-badge">Live</span>
         </div>
         <div class="nav-link" onclick="switchTab('settings')">
           <div class="nav-link-left">
@@ -767,10 +775,65 @@ body {
             </tbody>
           </table>
         </div>
+    </div>
+
+    <!-- TAB 5: AGENT TRACES & OBSERVABILITY -->
+    <div id="tab-traces" class="tab-pane">
+      <div class="card-panel" style="margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); display:flex; align-items:center; gap:8px;">
+              <span>🧭 Google ADK Agent Traces & Live Observability</span>
+              <span class="status-tag status-tag-green">Live Event Stream</span>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Chronological trace log emitted by the AGEM Supervisor Agent, Gemini 3.5 rightsizing engine, and AST Safety Validator.</div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn-action-base" onclick="loadTraces()">🔄 Refresh Traces</button>
+            <button class="btn-action-base" onclick="copyTracesJson()">📋 Copy JSON Payload</button>
+            <a href="/api/traces" target="_blank" class="btn-action-base btn-action-green" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+              <span>🌐 API Endpoint</span>
+            </a>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; flex-wrap:wrap; gap:12px;">
+          <div class="filter-bar" style="margin-top:0;">
+            <button class="filter-pill active" onclick="filterTraces('all', this)">All Events (<span id="trace-count-all">0</span>)</button>
+            <button class="filter-pill" onclick="filterTraces('ADK_REASONING', this)">🧠 ADK Reasoning</button>
+            <button class="filter-pill" onclick="filterTraces('VALIDATE', this)">🛡️ Safety Validation</button>
+            <button class="filter-pill" onclick="filterTraces('COMMIT', this)">📦 GitOps Commits</button>
+            <button class="filter-pill" onclick="filterTraces('EXECUTE', this)">⚡ Executions</button>
+          </div>
+          <div class="search-box" style="width:260px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="traces-search-input" placeholder="Filter traces..." oninput="searchTraces(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card-panel">
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 170px;">TIMESTAMP</th>
+                <th style="width: 160px;">STAGE / STEP</th>
+                <th style="width: 100px;">STATUS</th>
+                <th>TRACE DETAIL & LLM REASONING</th>
+              </tr>
+            </thead>
+            <tbody id="traces-table-body">
+              <tr>
+                <td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">Loading live event traces...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- TAB 5: SETTINGS -->
+    <!-- TAB 6: SETTINGS -->
     <div id="tab-settings" class="tab-pane">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
@@ -1046,6 +1109,10 @@ function switchTab(tabId) {
     metaEl.textContent = 'SAVINGS AUDIT';
     titleEl.textContent = 'Optimization Audit History';
     loadAudit();
+  } else if (tabId === 'traces') {
+    metaEl.textContent = 'OBSERVABILITY';
+    titleEl.textContent = 'Google ADK Agent Traces & Live Observability';
+    loadTraces();
   } else if (tabId === 'settings') {
     metaEl.textContent = 'SETTINGS';
     titleEl.textContent = 'System & Platform Settings';
@@ -1392,6 +1459,116 @@ async function loadAgentReasoning() {
   }
 }
 
+// Live Traces State & Engine
+let allTraces = [];
+let currentTraceFilter = 'all';
+let currentTraceSearch = '';
+
+async function loadTraces(filter = null) {
+  if (filter !== null) currentTraceFilter = filter;
+  try {
+    const res = await fetch('/api/traces');
+    const d = await res.json();
+    allTraces = d.traces || [];
+    
+    // Update badge in sidebar and counter
+    const badge = document.getElementById('nav-traces-badge');
+    if (badge) badge.textContent = `${allTraces.length} Live`;
+    const countAll = document.getElementById('trace-count-all');
+    if (countAll) countAll.textContent = allTraces.length;
+    
+    renderTracesTable();
+  } catch (e) {
+    console.error('Error fetching traces:', e);
+    const tbody = document.getElementById('traces-table-body');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--danger);">Failed to load /api/traces: ${e}</td></tr>`;
+    }
+  }
+}
+
+function renderTracesTable() {
+  const tbody = document.getElementById('traces-table-body');
+  if (!tbody) return;
+
+  let filtered = allTraces.slice();
+  
+  // Filter by step category
+  if (currentTraceFilter !== 'all') {
+    filtered = filtered.filter(t => (t.step || '').includes(currentTraceFilter));
+  }
+  
+  // Filter by search keyword
+  if (currentTraceSearch.trim()) {
+    const q = currentTraceSearch.toLowerCase();
+    filtered = filtered.filter(t => 
+      (t.step || '').toLowerCase().includes(q) || 
+      (t.detail || '').toLowerCase().includes(q) || 
+      (t.status || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">No trace records match the selected filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(t => {
+    let tsFormatted = 'Just now';
+    if (t.timestamp) {
+      tsFormatted = new Date(t.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' (' + new Date(t.timestamp * 1000).toLocaleDateString() + ')';
+    }
+    
+    const step = t.step || '[SYSTEM]';
+    let stepClass = 'status-tag-blue';
+    if (step.includes('REASONING')) stepClass = 'status-tag-purple';
+    else if (step.includes('VALIDATE')) stepClass = 'status-tag-green';
+    else if (step.includes('COMMIT')) stepClass = 'status-tag-orange';
+    else if (step.includes('EXECUTE') || step.includes('ROLLBACK') || step.includes('FINISH')) stepClass = 'status-tag-green';
+    else if (step.includes('DISCOVER') || step.includes('PROFILE')) stepClass = 'status-tag-blue';
+
+    const isOk = (t.status || 'ok') === 'ok';
+    const statusDot = isOk 
+      ? '<span style="color:var(--success); font-weight:700; display:inline-flex; align-items:center; gap:4px;">● ok</span>'
+      : `<span style="color:var(--danger); font-weight:700; display:inline-flex; align-items:center; gap:4px;">● ${escapeHtml(t.status)}</span>`;
+
+    return `
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-muted); white-space:nowrap;">${tsFormatted}</td>
+        <td><span class="status-tag ${stepClass}" style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;">${escapeHtml(step)}</span></td>
+        <td>${statusDot}</td>
+        <td style="font-size:13px; line-height:1.5; color:var(--text-primary); font-family:${step.includes('REASONING') ? "'Inter',sans-serif" : "'JetBrains Mono',monospace"}; font-weight:${step.includes('REASONING') ? '500' : '400'};">
+          ${escapeHtml(t.detail || '')}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterTraces(filter, btnEl) {
+  currentTraceFilter = filter;
+  if (btnEl && btnEl.parentElement) {
+    btnEl.parentElement.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+  }
+  renderTracesTable();
+}
+
+function searchTraces(query) {
+  currentTraceSearch = query;
+  renderTracesTable();
+}
+
+function copyTracesJson() {
+  if (allTraces && allTraces.length > 0) {
+    navigator.clipboard.writeText(JSON.stringify({ traces: allTraces }, null, 2)).then(() => {
+      showToast('Traces Copied', 'Complete /api/traces payload copied to clipboard!', true);
+    });
+  } else {
+    showToast('Notice', 'No traces to copy.', false);
+  }
+}
+
 // Approve / Reject / Rollback Actions
 async function approveAction(id, live) {
   try {
@@ -1404,6 +1581,7 @@ async function approveAction(id, live) {
     loadApprovals();
     loadAudit();
     loadAgentReasoning();
+    loadTraces();
   } catch(e) {
     showToast('Action Failed', 'Failed to approve patch: ' + e, false);
   }
@@ -1420,6 +1598,7 @@ async function rollbackAction(id) {
     loadApprovals();
     loadAudit();
     loadAgentReasoning();
+    loadTraces();
   } catch(e) {
     showToast('Rollback Failed', 'Failed to execute rollback: ' + e, false);
   }
@@ -1550,6 +1729,7 @@ async function triggerAutonomousScan() {
 
   scanning = false;
   loadApprovals();
+  loadTraces();
 }
 
 // Chart Initializations
@@ -1684,6 +1864,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try { loadApprovals(); } catch(e) { console.error(e); }
   try { loadAudit(); } catch(e) { console.error(e); }
   try { loadAgentReasoning(); } catch(e) { console.error(e); }
+  try { loadTraces(); } catch(e) { console.error(e); }
 });
 </script>
 
