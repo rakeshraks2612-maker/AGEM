@@ -128,6 +128,16 @@ $$\text{CWS} = 0.35 \cdot \text{Cost} + 0.30 \cdot \text{Performance} + 0.20 \cd
 - **Security (20%)**: Checks for public IP exposures and IAM over-privileging.
 - **Reliability (15%)**: Assesses multi-zone redundancy and automated backup schedules.
 
+### Measured vs. Estimated Savings Reconciliation
+AGEM uses a dual-horizon financial reconciliation model:
+- **Estimated Savings (Real-Time)**: Computed instantly by the CWS engine and Gemini 3.5 synthesis using machine tier cost deltas (e.g. `db-n1-standard-2` to `db-f1-micro` saves ~$52.00/month).
+- **Measured Savings (Delayed 24h)**: Reconciled against Google Cloud Billing BigQuery Exports (`agem.billing`). Because GCP billing data ingestion operates on a standard 24-hour batch export window, the dashboard presents both real-time predictive estimates and verified billing reconciliation reports.
+
+### Autonomous Cloud Scheduler & Pub/Sub Cron
+AGEM is completely autonomous and requires zero manual initiation:
+- **Frequency:** `0 */6 * * *` (Runs every 6 hours)
+- **Architecture:** Cloud Scheduler pushes `{"source": "scheduler", "scan_type": "full"}` to Cloud Pub/Sub topic `agem-scan-trigger`, invoking the `/pubsub` webhook endpoint on Cloud Run to run full fleet profiling, rightsizing, safety verification, and isolated GitOps branch creation.
+
 ---
 
 ## Live Web Dashboard
@@ -142,6 +152,8 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 - **Live ADK Reasoning Card**: Shows Gemini Supervisor trade-off analysis directly beneath the loop pipeline.
 - **Approval & Rollback Queue**: View before/after diffs, trigger live patch applications, or execute instant rollbacks with toast notifications.
 - **GCP Topology Map**: Interactive filtering and inspection of 15 GCP resources across Cloud SQL, Cloud Run, and BigQuery with live CWS meters.
+- **Live Observability & Event Traces**: Inspect full chronological ADK reasoning and AST validation traces.
+- **Cross-Session Optimization History**: Live Firestore audit records tracking all historical optimizations.
 
 ---
 
@@ -164,10 +176,13 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 | `/dashboard` | `GET` | Single-Page Web Dashboard UI |
 | `/api/health` | `GET` | System health, ADK version, Gemini model status, and ESG telemetry |
 | `/api/scan` | `POST` | Triggers autonomous optimization scan across all 7 tools |
+| `/pubsub` | `POST` | Cloud Pub/Sub push webhook invoked by Cloud Scheduler 6h cron |
 | `/api/traces` | `GET` | Observability trace log (sanitized `status: ok` operational events) |
+| `/api/history` | `GET` | Live Firestore cross-session optimization history and savings |
+| `/api/billing` | `GET` | Cloud Billing BigQuery Export reconciliation and cost metrics |
 | `/api/resources` | `GET` | Profiled GCP fleet resources with calculated CWS scores |
 | `/api/approvals` | `GET` | Pending optimization patch queue with configuration diffs |
-| `/api/approvals/<id>/approve` | `POST` | Approves and executes a rightsizing patch |
+| `/api/approvals/<id>/approve` | `POST` | Approves and executes a rightsizing patch (live or dry-run) |
 | `/api/approvals/<id>/rollback` | `POST` | Executes stored `gcloud` rollback command |
 | `/api/audit` | `GET` | Audit log of completed optimizations and dollar savings |
 

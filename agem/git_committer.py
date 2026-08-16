@@ -97,10 +97,26 @@ class GitCommitter:
             # Restore working branch
             if curr_branch and curr_branch != branch_name:
                 self._run_git(["checkout", curr_branch])
+                
+            # Attempt push to remote if GITHUB_TOKEN or remote configured
+            self._push_to_remote(branch_name)
         except Exception:
             self._run_git(["branch", "-f", branch_name])
             
         return CommitResult(True, branch_name, commit_hash, f"Committed {filename} to {branch_name}")
+    
+    def _push_to_remote(self, branch_name: str) -> bool:
+        """Push isolated branch to remote GitHub repository if GITHUB_TOKEN or credentials exist."""
+        token = os.environ.get("GITHUB_TOKEN")
+        repo_url = os.environ.get("GITHUB_REPO_URL", "https://github.com/rakeshraks2612-maker/AGEM.git")
+        try:
+            if token:
+                auth_url = repo_url.replace("https://", f"https://{token}@")
+                self._run_git(["remote", "set-url", "origin", auth_url])
+            push_res = self._run_git(["push", "-u", "origin", branch_name])
+            return push_res.returncode == 0
+        except Exception:
+            return False
     
     def list_branches(self) -> List[str]:
         result = self._run_git(["branch", "-a"])

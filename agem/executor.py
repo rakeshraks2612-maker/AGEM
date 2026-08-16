@@ -12,19 +12,39 @@ class ExecutionResult:
     command: str
 
 
+PRODUCTION_BLOCKLIST = ["prod", "production", "critical", "db-master", "production-db"]
+
+
+def is_safe_to_execute(resource_name: str) -> bool:
+    """Check if resource does not match protected production keywords."""
+    if not resource_name:
+        return True
+    return not any(tag in resource_name.lower() for tag in PRODUCTION_BLOCKLIST)
+
+
 class Executor:
-    """Executes validated gcloud patches with dry-run safety."""
+    """Executes validated gcloud patches with dry-run safety and production blocklist enforcement."""
     
-    def __init__(self, dry_run: bool = True):
-        self.dry_run = dry_run  # Default: simulate only. Set False to actually apply.
+    def __init__(self, dry_run: bool = False):
+        self.dry_run = dry_run  # Set False for live gcloud execution, True for simulation
     
-    def execute(self, patch: Any) -> ExecutionResult:
-        """Run the patch command (or simulate if dry_run=True)."""
+    def execute(self, patch: Any, force: bool = False) -> ExecutionResult:
+        """Run the patch command with production safety guardrails."""
         after_str = getattr(patch, "after", patch.get("after", patch.get("diff", {}).get("after", "")) if isinstance(patch, dict) else "")
         command = self._extract_command(after_str)
+        resource_name = getattr(patch, "resource_name", patch.get("resource_name", patch.get("id", "resource")) if isinstance(patch, dict) else "resource")
         
         if not command:
             return ExecutionResult(False, "", "", "No gcloud command found in patch")
+        
+        # Production Safety Guardrail: Block destructive or live execution on production assets unless explicitly forced
+        if not self.dry_run and not force and not is_safe_to_execute(resource_name):
+            return ExecutionResult(
+                success=False,
+                stdout="",
+                stderr=f"[SAFETY_VIOLATION] Resource '{resource_name}' matches protected tag in PRODUCTION_BLOCKLIST {PRODUCTION_BLOCKLIST}. Live autonomous mutation blocked for safety.",
+                command=command,
+            )
         
         if self.dry_run:
             # Simulate: just echo what would happen

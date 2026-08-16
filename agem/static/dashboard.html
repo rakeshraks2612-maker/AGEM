@@ -1675,57 +1675,55 @@ async function rejectAction(id) {
   }
 }
 
-// Fetch Audit
+// Fetch Audit & Cross-Session History
 async function loadAudit() {
   try {
-    const r = await fetch('/api/audit');
-    const d = await r.json();
-    const history = d.history || [];
+    let history = [];
+    try {
+      const r = await fetch('/api/history');
+      const d = await r.json();
+      history = d.history || [];
+    } catch(e) {
+      const r = await fetch('/api/audit');
+      const d = await r.json();
+      history = d.history || [];
+    }
     const tbody = document.getElementById('audit-table-body');
     if (!tbody) return;
     if (!history || history.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No audit records.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">No optimization records found in Firestore.</td></tr>';
       return;
     }
     tbody.innerHTML = history.map(item => {
-      // Handle both real scan-record schema and mock audit schema
       let ts = item.timestamp || '';
       if (typeof ts === 'number') {
         ts = new Date(ts * 1000).toLocaleString();
+      } else if (ts && typeof ts === 'object' && ts._seconds) {
+        ts = new Date(ts._seconds * 1000).toLocaleString();
       }
-      // Real scan record: {timestamp, project, patches_generated, branches, dry_run}
-      // Mock audit record: {timestamp, resource, action, branch, savings, status}
-      const isScanRecord = item.patches_generated !== undefined;
-      if (isScanRecord) {
-        const branchList = (item.branches || []).join(', ') || 'agem/auto-optimize';
-        const numPatches = item.patches_generated || 0;
-        const project = item.project || 'agem-505107';
-        return `
-          <tr>
-            <td style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;">${ts}</td>
-            <td style="font-weight:600;">${project}</td>
-            <td style="max-width:320px;">Autonomous scan &mdash; ${numPatches} patch${numPatches !== 1 ? 'es' : ''} generated${item.dry_run ? ' (dry-run)' : ''}</td>
-            <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${branchList}">${branchList.split(',')[0] || 'agem/auto-optimize'}</td>
-            <td style="font-weight:700;color:var(--success);">&#8212;</td>
-            <td><span class="status-tag ${item.dry_run ? 'status-tag-blue' : 'status-tag-green'}">${item.dry_run ? 'dry-run' : 'applied'}</span></td>
-          </tr>
-        `;
-      }
-      // Mock audit record
-      const savingsVal = item.savings;
-      const savingsStr = typeof savingsVal === 'number' ? '$' + savingsVal.toFixed(2) : (savingsVal || '&mdash;');
+      
+      const rName = item.resource_name || item.resource || item.project || 'agem-resource';
+      const action = item.patch_action || item.action || (item.patches_generated ? `Autonomous scan — ${item.patches_generated} patches generated` : 'Resource right-sizing');
+      const branch = item.branch_name || item.branch || (item.branches ? item.branches[0] : 'agem/auto-optimize');
+      const savings = item.estimated_savings || (item.savings ? (typeof item.savings === 'number' ? '$' + item.savings.toFixed(2) + '/mo' : item.savings) : '—');
+      const status = item.status || (item.dry_run ? 'dry-run' : 'applied');
+      
+      let statusTagClass = 'status-tag-green';
+      if (status === 'committed') statusTagClass = 'status-tag-orange';
+      else if (status === 'dry-run') statusTagClass = 'status-tag-blue';
+      
       return `
         <tr>
-          <td style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;">${ts}</td>
-          <td style="font-weight:600;">${item.resource || '&mdash;'}</td>
-          <td style="max-width:320px;">${item.action || '&mdash;'}</td>
-          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--primary);">${item.branch || 'agem/auto-optimize'}</td>
-          <td style="font-weight:700;color:var(--success);">${savingsStr}/month</td>
-          <td><span class="status-tag status-tag-green">${item.status || 'committed'}</span></td>
+          <td style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;">${ts || 'Just now'}</td>
+          <td style="font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--text-primary);">${rName}</td>
+          <td style="max-width:320px;font-size:13px;line-height:1.4;">${action}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${branch}">${branch}</td>
+          <td style="font-weight:700;color:var(--success);white-space:nowrap;">${savings}</td>
+          <td><span class="status-tag ${statusTagClass}">${status}</span></td>
         </tr>
       `;
     }).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error('Error loading audit history:', e); }
 }
 
 // Autonomous Scan Pipeline Animation (7 Stages)
