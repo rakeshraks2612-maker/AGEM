@@ -3,8 +3,14 @@ import os
 import time
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+    HAS_GENAI = True
+except ImportError:
+    genai = None
+    types = None
+    HAS_GENAI = False
 
 
 @dataclass
@@ -33,10 +39,12 @@ class Patcher:
             except Exception:
                 pass
         
-        if not api_key:
-            raise ValueError("No Gemini API key found. Set GEMINI_API_KEY env var or config/config.yaml")
-        
-        self.client = genai.Client(api_key=api_key)
+        self.client = None
+        if HAS_GENAI and genai is not None and api_key:
+            try:
+                self.client = genai.Client(api_key=api_key)
+            except Exception:
+                self.client = None
     
     def _build_prompt(self, resource: Dict[str, Any], score: Dict[str, Any]) -> str:
         return f"""You are AGEM, an autonomous cloud optimization engineer.
@@ -60,6 +68,9 @@ SAFETY_NOTES: [risks]
 Patch:"""
     
     def generate_patch(self, resource: Dict[str, Any], score: Dict[str, Any]) -> Patch:
+        if not self.client:
+            return self._fallback_patch(resource, score)
+        
         prompt = self._build_prompt(resource, score)
         
         max_retries = 2

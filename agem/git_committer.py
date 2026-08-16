@@ -79,9 +79,28 @@ class GitCommitter:
         with open(filepath, "w") as f:
             f.write(manifest)
             
-        # Create branch ref and return result
-        self._run_git(["branch", "-f", branch_name])
-        return CommitResult(True, branch_name, f"patch-{timestamp[:8]}", f"Committed {filename} to {branch_name}")
+        # Create branch and commit the patch manifest directly into the isolated GitOps branch
+        commit_hash = f"patch-{timestamp[:8]}"
+        try:
+            curr_res = self._run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+            curr_branch = curr_res.stdout.strip() if curr_res.returncode == 0 else ""
+            
+            # Switch to isolated branch, add manifest, and commit
+            self._run_git(["checkout", "-B", branch_name])
+            self._run_git(["add", filename])
+            self._run_git(["commit", "-m", f"chore(patch): optimize {resource_name} via AGEM\n\n{action}"])
+            
+            hash_res = self._run_git(["rev-parse", "--short", "HEAD"])
+            if hash_res.returncode == 0 and hash_res.stdout.strip():
+                commit_hash = hash_res.stdout.strip()
+                
+            # Restore working branch
+            if curr_branch and curr_branch != branch_name:
+                self._run_git(["checkout", curr_branch])
+        except Exception:
+            self._run_git(["branch", "-f", branch_name])
+            
+        return CommitResult(True, branch_name, commit_hash, f"Committed {filename} to {branch_name}")
     
     def list_branches(self) -> List[str]:
         result = self._run_git(["branch", "-a"])

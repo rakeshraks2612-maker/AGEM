@@ -2,7 +2,16 @@
 import os
 import traceback
 from typing import List, Dict, Any
-from google.adk.agents import Agent
+try:
+    from google.adk.agents import Agent
+except ImportError:
+    class Agent:
+        def __init__(self, name="", model="", description="", instruction="", tools=None):
+            self.name = name
+            self.model = model
+            self.description = description
+            self.instruction = instruction
+            self.tools = tools or []
 
 _AGEM_CORE = {}
 try:
