@@ -3,6 +3,7 @@
 **Closed-Loop GCP Infrastructure Optimization Agent built with Google ADK & Gemini**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/rakeshraks2612-maker/AGEM/actions/workflows/ci.yml/badge.svg)](https://github.com/rakeshraks2612-maker/AGEM/actions)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![GCP](https://img.shields.io/badge/GCP-Cloud%20SQL%20%7C%20Run%20%7C%20BigQuery-orange.svg)](https://cloud.google.com/)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-v2.6.3-green.svg)](https://cloud.google.com/vertex-ai)
@@ -180,7 +181,7 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 - GCP Project with Cloud Asset Inventory, Cloud Monitoring, and Firestore APIs enabled
 - Gemini API Key (Vertex AI or Google AI Studio)
 
-### Installation
+### Installation & Execution
 ```bash
 # 1. Clone the repository
 git clone https://github.com/rakeshraks2612-maker/AGEM.git
@@ -195,7 +196,13 @@ pip install -r requirements.txt
 export GOOGLE_CLOUD_PROJECT="agem-505107"
 export GEMINI_API_KEY="your-gemini-api-key"
 
-# 4. Start the AGEM server
+# 4. Run automated unit test suite (18 tests, 100% pass)
+python -m unittest discover -s tests -p "test_*.py" -v
+
+# 5. Run CLI autonomous agent loop scan
+python main.py
+
+# 6. Start the local AGEM dashboard server
 python -m agem.server
 ```
 Open `http://localhost:8080/dashboard` in your browser.
@@ -206,8 +213,12 @@ Open `http://localhost:8080/dashboard` in your browser.
 
 ```
 AGEM/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # GitHub Actions CI automated test suite
 ├── agem/                          # Core AGEM Package
 │   ├── __init__.py
+│   ├── mock_data.py              # Centralized baseline topology & metrics
 │   ├── profiler.py               # Tool 1 & 2: Asset Inventory & Monitoring connector
 │   ├── scorer.py                 # Tool 3: Cloud Waste Score (CWS) algorithm
 │   ├── patcher.py                # Tool 4: Gemini 3.5 Flash patch generator
@@ -224,6 +235,13 @@ AGEM/
 │       └── dashboard.html        # Embedded web dashboard
 ├── static/
 │   └── dashboard.html            # Production dashboard source
+├── tests/                        # Automated Unit Test Suite (18 tests)
+│   ├── test_scorer.py            # CWS formula & edge cases
+│   ├── test_validator.py         # AST safety & non-destructive checks
+│   ├── test_patcher.py           # Gemini patch parsing & rollback checks
+│   ├── test_supervisor.py        # Google ADK agent & tool registration
+│   └── test_executor.py          # Dry-run execution & rollback logic
+├── main.py                       # CLI agent loop runner
 ├── config/
 │   └── config.yaml               # Agent configuration & thresholds
 ├── prompts/

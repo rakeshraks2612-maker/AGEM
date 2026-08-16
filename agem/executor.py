@@ -20,7 +20,8 @@ class Executor:
     
     def execute(self, patch: Any) -> ExecutionResult:
         """Run the patch command (or simulate if dry_run=True)."""
-        command = self._extract_command(patch.after)
+        after_str = getattr(patch, "after", patch.get("after", patch.get("diff", {}).get("after", "")) if isinstance(patch, dict) else "")
+        command = self._extract_command(after_str)
         
         if not command:
             return ExecutionResult(False, "", "", "No gcloud command found in patch")

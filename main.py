@@ -133,3 +133,51 @@ def agem_scan(request):
         "scan_duration_sec": round(time.time() - start, 2),
         "results": results,
     })
+
+
+if __name__ == "__main__":
+    import sys
+    from agem import profiler, scorer, patcher, validator, git_committer, executor
+    from agem.agents.supervisor import AGEMSupervisor
+
+    print("\n" + "=" * 70)
+    print("  🚀 AGEM — Autonomous Google-powered Efficiency Manager (CLI Mode)")
+    print(f"  Target GCP Project: {PROJECT_ID} | Framework: Google ADK v2.6.3")
+    print("=" * 70 + "\n")
+
+    print("🔍 [Stage 1/7: DISCOVER] Ingesting GCP fleet topology...")
+    resources = profiler.discover(PROJECT_ID)
+    print(f"   -> Discovered {len(resources)} active endpoints.")
+
+    print("\n📊 [Stage 2/7: PROFILE] Aggregating 7-day Cloud Monitoring telemetry...")
+    profiled = profiler.profile(PROJECT_ID)
+    for r in profiled:
+        print(f"   - {r.get('id', 'resource')} ({r.get('type', 'GCP')}) -> Metrics: {r.get('metrics', {})}")
+
+    print("\n⚖️ [Stage 3/7: SCORE] Calculating Cloud Waste Score (CWS)...")
+    scored = scorer.compute_cws(profiled)
+    for r in scored:
+        print(f"   - {r.get('id')}: CWS={r.get('cws', 0.5):.2f}/1.0 ({r.get('cws_detail', {}).get('dominant_bottleneck', 'Waste')})")
+
+    print("\n🧠 [Stage 4/7: SYNTHESIZE] Generating Gemini 3.5 rightsizing patches...")
+    patches = patcher.generate(scored)
+    print(f"   -> Synthesized {len(patches)} optimization candidate patches.")
+
+    print("\n🛡️ [Stage 5/7: VALIDATE] Executing AST syntax & non-destructive safety checks...")
+    for p in patches:
+        v = validator.validate(p)
+        print(f"   - {p.get('resource_id')}: {'✅ PASSED' if v else '❌ FAILED'}")
+
+    print("\n📦 [Stage 6/7: GITOPS COMMIT] Committing patch manifests to isolated Git branches...")
+    for p in patches:
+        b = git_committer.commit(p)
+        print(f"   - Branch: {b} -> Savings: ${p.get('savings', 0):.2f}/mo")
+
+    print("\n⚡ [Stage 7/7: ADK SUPERVISOR] Initializing ADK Supervisor Loop...")
+    supervisor = AGEMSupervisor()
+    print(f"   Supervisor initialized: {supervisor.agent.name} with {len(supervisor.agent.tools)} tools.")
+
+    print("\n" + "=" * 70)
+    print("  🎉 Autonomous Scan Complete! Run `python -m agem.server` for Web UI.")
+    print("=" * 70 + "\n")
+

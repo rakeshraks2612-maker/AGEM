@@ -157,18 +157,22 @@ Patch:"""
             elif line.startswith("ACTION:"):
                 data["action"] = line.split(":", 1)[1].strip()
             elif line.startswith("BEFORE:"):
-                current_key = "before"; data["before"] = ""
+                current_key = "before"
+                data["before"] = line.split(":", 1)[1].strip()
             elif line.startswith("AFTER:"):
-                current_key = "after"; data["after"] = ""
+                current_key = "after"
+                data["after"] = line.split(":", 1)[1].strip()
             elif line.startswith("ESTIMATED_SAVINGS:"):
+                current_key = None
                 data["estimated_savings"] = line.split(":", 1)[1].strip()
             elif line.startswith("ROLLBACK:"):
+                current_key = None
                 data["rollback"] = line.split(":", 1)[1].strip()
             elif line.startswith("SAFETY_NOTES:"):
                 current_key = "safety_notes"
-                data["safety_notes"] = ""
-            elif current_key and line and not line.startswith("PATCH_TYPE"):
-                data[current_key] += line + "\n"
+                data["safety_notes"] = line.split(":", 1)[1].strip()
+            elif current_key and line:
+                data[current_key] = (data[current_key] + "\n" + line).strip()
         
         return Patch(
             resource_type=resource.get("type", "unknown").split("/")[-1],
