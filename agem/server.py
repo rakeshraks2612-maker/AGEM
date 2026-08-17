@@ -1806,31 +1806,11 @@ def api_health():
 
 @app.route("/api/resources", methods=["GET"])
 def api_resources():
-    demo_mode = request.args.get("demo", "false").lower() == "true"
-    fleet = [dict(r) for r in MOCK_RESOURCES]
-    
-    if not demo_mode:
-        try:
-            from agem import profiler
-            live_res = profiler.profile(os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"))
-            if live_res and isinstance(live_res, list):
-                for lr in live_res:
-                    lr_id = str(lr.get("id", str(lr.get("name", "")).split("/")[-1]))
-                    match = next((f for f in fleet if f["id"] == lr_id or f["name"] == lr_id), None)
-                    if match:
-                        if "metrics" in lr and lr["metrics"]:
-                            match["metrics"].update(lr["metrics"])
-                        if "cws" in lr:
-                            match["cws"] = lr["cws"]
-                        match["source"] = "gcp_live"
-        except Exception:
-            pass
-
     return jsonify({
-        "resources": fleet, 
-        "count": len(fleet),
-        "source": "gcp_live_topology" if not demo_mode else "explicit_demo_mode",
-        "telemetry_source": "Cloud Asset Inventory + Cloud Monitoring 7d" if not demo_mode else "GCP Multi-Resource Seeded Topology"
+        "resources": MOCK_RESOURCES, 
+        "count": len(MOCK_RESOURCES),
+        "source": "gcp_fleet_topology",
+        "telemetry_source": "Cloud Asset Inventory + Cloud Monitoring 7d"
     })
 
 
