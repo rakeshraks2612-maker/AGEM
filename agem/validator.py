@@ -13,7 +13,7 @@ class ValidationResult:
 
 
 class Validator:
-    """Enterprise-grade AST and structural validator for gcloud and Terraform patches."""
+    """Deterministic Safety and Structural Validator for gcloud and Terraform optimization patches."""
     
     # Destructive or unsafe operations strictly blocked
     DANGEROUS_COMMANDS = [

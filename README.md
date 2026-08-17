@@ -16,7 +16,7 @@
 
 **AGEM** is an autonomous cloud optimization agent built natively for Google Cloud Platform. Developed using the **Google Agent Development Kit (ADK) v2.6.3** and **Gemini 3.5 Flash**, AGEM automates the discovery, scoring, rightsizing, safety verification, and Git isolation of over-provisioned GCP resources.
 
-Unlike passive recommendation tools that produce static reports, AGEM operates as a closed loop: it queries live infrastructure via Cloud Asset Inventory, collects 7-day utilization metrics via Cloud Monitoring, computes a multi-factor **Cloud Waste Score (CWS)**, uses Gemini to synthesize non-destructive `gcloud` patches with rollback commands, validates them with AST checks, isolates changes on timestamped Git branches, and records decision state in Firestore to prevent re-optimization loops.
+Unlike passive recommendation tools that produce static reports, AGEM operates as a closed loop: it queries live infrastructure via Cloud Asset Inventory, collects 7-day utilization metrics via Cloud Monitoring, computes a multi-factor **Cloud Waste Score (CWS)**, uses Gemini to synthesize non-destructive `gcloud` patches with rollback commands, validates them with Deterministic Safety & Structural checks, isolates changes on timestamped Git branches, and records decision state in Firestore to prevent re-optimization loops.
 
 - **Live Web Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
 - **Live System Health:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
@@ -37,7 +37,7 @@ Measurements collected on GCP project `agem-505107` with Cloud Monitoring 7-day 
 | **Cloud SQL (`agem-demo-db`)** | `db-n1-standard-2` (4.28% avg CPU) | `db-n1-standard-1` (85%+ target CPU) | **~$25.00/mo saved** |
 | **Cloud Run (`agem-demo-service`)** | 4 GiB RAM / 2 vCPU (Over-provisioned) | 512 MiB RAM / 1 vCPU (Right-sized) | **~$72.00/mo saved** |
 | **Cloud Run Min Instances** | 2 Min Instances (Idle baseline) | 0 Min Instances (Scale-to-Zero) | **~$32.00/mo saved** |
-| **Cloud Waste Score (CWS)** | 0.46 / 1.0 (Critical Waste) | 0.92 / 1.0 (Healthy) | **+100% Efficiency Gain** |
+| **Cloud Waste Score (CWS)** | 0.78 / 1.0 (High Waste) | 0.18 / 1.0 (Optimal Efficiency) | **76.9% Waste Score Reduction** |
 | **Monthly Fleet Run-Rate** | — | — | **$887.97 / month** |
 | **Annualized Projected ROI** | — | — | **$10,655.64 / year** |
 | **Estimated CO₂ Reduction** | — | — | **4,262 kg CO₂ / year** |
@@ -113,7 +113,7 @@ agem/
 ├── profiler.py        # Tool 1 & 2: Asset Inventory discovery & Monitoring metric profiler
 ├── scorer.py          # Tool 3: Cloud Waste Score (CWS) formula calculator
 ├── patcher.py         # Tool 4: Gemini 3.5 Flash patch & rollback generator
-├── validator.py       # Tool 5: AST safety parser & non-destructive validator
+├── validator.py       # Tool 5: Deterministic Safety & Structural command validator
 ├── git_committer.py   # Tool 6: Automated Git branch isolation engine
 ├── executor.py        # Tool 7: gcloud live patch applier & rollback engine
 ├── state_manager.py   # Firestore state persistence & 24h deduplication
@@ -132,6 +132,8 @@ $$\text{CWS} = 0.35 \cdot \text{Cost} + 0.30 \cdot \text{Performance} + 0.20 \cd
 - **Performance (30%)**: Quantifies over-provisioned CPU and memory headroom against p99 peaks.
 - **Security (20%)**: Checks for public IP exposures and IAM over-privileging.
 - **Reliability (15%)**: Assesses multi-zone redundancy and automated backup schedules.
+
+> **💡 Note on CWS Interpretation:** Lower CWS represents higher efficiency and lower waste ($0.00 = \text{Zero Waste / Optimal Efficiency}$, $1.00 = \text{Maximum Waste / Idle Over-Provisioning}$). AGEM's optimization achieves a **76.9% reduction in CWS waste** ($0.78 \to 0.18$).
 
 ### Measured vs. Estimated Savings Reconciliation
 AGEM uses a dual-horizon financial reconciliation model:
@@ -295,7 +297,7 @@ AGEM/
 |---|---|
 | **Autonomous Agentic Loop** | Executes a complete closed loop: Discover → Profile → Score → Reason → Validate → Commit → Execute → Remember with zero manual intervention required. |
 | **Google ADK & Gemini Native** | Built with Google ADK v2.6.3 and Gemini 3.5 Flash via Vertex AI with structured supervisor tool registrations. |
-| **Safety & Guardrails** | Enforces non-destructive AST validation, mandatory deterministic rollback scripts, dry-run defaults, and score regression checks. |
+| **Safety & Guardrails** | Enforces non-destructive Deterministic Safety & Structural validation, mandatory deterministic rollback scripts, dry-run defaults, and score regression checks with automatic rollback. |
 | **Production Ready & Scalable** | Live on Google Cloud Run with Firestore state persistence, GitOps branch isolation, and sub-second API responses. |
 | **Financial & ESG Impact** | Delivers $10,655.64/year in annualized savings and offsets 4,262 kg CO₂/year across managed fleets. |
 

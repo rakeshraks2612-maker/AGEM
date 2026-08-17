@@ -33,15 +33,18 @@ class TestExecutor(unittest.TestCase):
         self.assertIn("--min-instances=2", result.command)
 
     def test_reprofile_and_validate(self):
-        # Successful optimization (lower waste)
-        ok, msg = self.executor.reprofile_and_validate("agem-db", base_cws=0.80, opt_cws=0.25)
+        # Successful optimization (lower waste: 0.80 -> dynamic post_cws <= 0.80)
+        ok, post_cws, msg = self.executor.reprofile_and_validate({"resource_name": "agem-db"}, base_cws=0.80)
         self.assertTrue(ok)
-        self.assertIn("Verified CWS efficiency gain", msg)
+        self.assertLess(post_cws, 0.80)
+        self.assertIn("Verified CWS waste reduction", msg)
         
-        # Regression (higher waste)
-        reg_ok, reg_msg = self.executor.reprofile_and_validate("agem-db", base_cws=0.30, opt_cws=0.60)
+        # Regression with Auto-Rollback (higher waste: base_cws=0.20 < post_cws triggers rollback)
+        patch = {"resource_name": "agem-db", "rollback": "gcloud run services update agem-db --min-instances=2"}
+        reg_ok, reg_cws, reg_msg = self.executor.reprofile_and_validate(patch, base_cws=0.20)
         self.assertFalse(reg_ok)
-        self.assertIn("Regression detected", reg_msg)
+        self.assertGreaterEqual(reg_cws, 0.20)
+        self.assertIn("AUTO-ROLLBACK TRIGGERED", reg_msg)
 
 
 if __name__ == "__main__":

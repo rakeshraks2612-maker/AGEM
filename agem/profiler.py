@@ -439,3 +439,22 @@ def profile(project_id: str = None) -> List[Dict[str, Any]]:
             else:
                 r['metrics'] = {'cpu': '5%', 'memory_limit_gi': 2}
     return resources
+
+
+def profile_resource(name: str, rtype: str = "", project_id: str = None) -> Dict[str, Any]:
+    """Re-profile a single GCP resource live for post-apply verification."""
+    clean_name = name.split('/')[-1]
+    res_obj = {"name": f"projects/{project_id or PROJECT_ID}/resources/{clean_name}", "type": rtype or "gcp.resource", "id": clean_name}
+    
+    if "sql" in rtype.lower() or "sql" in clean_name.lower() or "db" in clean_name.lower():
+        sql_cfg = get_cloud_sql_config(clean_name)
+        cpu = get_cloud_sql_cpu(clean_name)
+        res_obj["metrics"] = {"cpu": f"{cpu*100:.1f}%", "cpu_utilization_7d_avg": cpu, **sql_cfg}
+    elif "run" in rtype.lower() or "service" in clean_name.lower():
+        res_obj["metrics"] = get_cloud_run_config(clean_name)
+    elif "bigquery" in rtype.lower() or "table" in clean_name.lower():
+        res_obj["metrics"] = get_bigquery_metrics(clean_name)
+    else:
+        res_obj["metrics"] = {"cpu": "2.5%", "memory_limit_gi": 1}
+        
+    return res_obj
