@@ -19,7 +19,12 @@
 Unlike passive recommendation tools that produce static reports, AGEM operates as a closed loop: it queries live infrastructure via Cloud Asset Inventory, collects 7-day utilization metrics via Cloud Monitoring, computes a multi-factor **Cloud Waste Score (CWS)**, uses Gemini to synthesize non-destructive `gcloud` patches with rollback commands, validates them with AST checks, isolates changes on timestamped Git branches, and records decision state in Firestore to prevent re-optimization loops.
 
 - **Live Web Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
-- **Live Health Endpoint:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
+- **Live System Health:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
+- **Live Firestore History:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/history](https://agem-server-bplbjsjr4a-uc.a.run.app/api/history)
+- **Live Observability Traces:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/traces](https://agem-server-bplbjsjr4a-uc.a.run.app/api/traces)
+- **Live Cloud Billing Telemetry:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/billing](https://agem-server-bplbjsjr4a-uc.a.run.app/api/billing)
+- **Live Profiled Resources:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/resources](https://agem-server-bplbjsjr4a-uc.a.run.app/api/resources)
+- **Live Approvals Queue:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/approvals](https://agem-server-bplbjsjr4a-uc.a.run.app/api/approvals)
 
 ---
 
@@ -174,18 +179,18 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/dashboard` | `GET` | Single-Page Web Dashboard UI |
-| `/api/health` | `GET` | System health, ADK version, Gemini model status, and ESG telemetry |
+| [`/dashboard`](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard) | `GET` | Single-Page Web Dashboard UI |
+| [`/api/health`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health) | `GET` | System health, ADK version, Gemini model status, and ESG telemetry |
 | `/api/scan` | `POST` | Triggers autonomous optimization scan across all 7 tools |
 | `/pubsub` | `POST` | Cloud Pub/Sub push webhook invoked by Cloud Scheduler 6h cron |
-| `/api/traces` | `GET` | Observability trace log (sanitized `status: ok` operational events) |
-| `/api/history` | `GET` | Live Firestore cross-session optimization history and savings |
-| `/api/billing` | `GET` | Cloud Billing BigQuery Export reconciliation and cost metrics |
-| `/api/resources` | `GET` | Profiled GCP fleet resources with calculated CWS scores |
-| `/api/approvals` | `GET` | Pending optimization patch queue with configuration diffs |
+| [`/api/traces`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/traces) | `GET` | Observability trace log (sanitized `status: ok` operational events) |
+| [`/api/history`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/history) | `GET` | Live Firestore cross-session optimization history and savings |
+| [`/api/billing`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/billing) | `GET` | Cloud Billing BigQuery Export reconciliation and cost metrics |
+| [`/api/resources`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/resources) | `GET` | Profiled GCP fleet resources with calculated CWS scores |
+| [`/api/approvals`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/approvals) | `GET` | Pending optimization patch queue with configuration diffs |
 | `/api/approvals/<id>/approve` | `POST` | Approves and executes a rightsizing patch (live or dry-run) |
 | `/api/approvals/<id>/rollback` | `POST` | Executes stored `gcloud` rollback command |
-| `/api/audit` | `GET` | Audit log of completed optimizations and dollar savings |
+| [`/api/audit`](https://agem-server-bplbjsjr4a-uc.a.run.app/api/audit) | `GET` | Audit log of completed optimizations and dollar savings |
 
 ---
 
@@ -279,6 +284,9 @@ AGEM/
 - **GCP Infrastructure:** Google Cloud Run, Cloud Firestore, Cloud Asset Inventory, Cloud Monitoring, Cloud Build
 - **Live Production URL:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
 - **Live Health Endpoint:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
+- **Live History Endpoint:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/history](https://agem-server-bplbjsjr4a-uc.a.run.app/api/history)
+- **Live Observability Traces:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/traces](https://agem-server-bplbjsjr4a-uc.a.run.app/api/traces)
+- **Live Billing Reconciliation:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/billing](https://agem-server-bplbjsjr4a-uc.a.run.app/api/billing)
 - **GitHub Repository:** [https://github.com/rakeshraks2612-maker/AGEM](https://github.com/rakeshraks2612-maker/AGEM)
 
 ### Rubric Alignment (Taskmaster Track)
