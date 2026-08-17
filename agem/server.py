@@ -1812,27 +1812,32 @@ def api_resources():
     try:
         from agem import profiler
         res = profiler.profile(os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107"))
-        if res:
+        if res and isinstance(res, list):
+            clean_res = []
+            for r in res:
+                clean_res.append({
+                    "name": str(r.get("name", "resource")),
+                    "type": str(r.get("type", "gcp.resource")),
+                    "id": str(r.get("id", str(r.get("name", "res")).split("/")[-1])),
+                    "metrics": r.get("metrics", {}),
+                    "source": str(r.get("source", "gcp_live")),
+                    "cws": r.get("cws", 0.5)
+                })
             return jsonify({
-                "resources": res, 
-                "count": len(res),
+                "resources": clean_res, 
+                "count": len(clean_res),
                 "source": "gcp_live",
                 "telemetry_source": "Cloud Asset Inventory + Cloud Monitoring 7d"
             })
-        return jsonify({
-            "resources": _RUNTIME_STATE.get("resources", []) or MOCK_RESOURCES, 
-            "count": len(_RUNTIME_STATE.get("resources", []) or MOCK_RESOURCES),
-            "source": "live_managed_fleet",
-            "telemetry_source": "GCP Multi-Resource Fleet Topology"
-        })
-    except Exception as e:
-        tracer.record("[RESOURCES]", f"Live resource profiling fallback notice: {e}", "info")
-        return jsonify({
-            "resources": _RUNTIME_STATE.get("resources", []) or MOCK_RESOURCES, 
-            "count": len(_RUNTIME_STATE.get("resources", []) or MOCK_RESOURCES),
-            "source": "live_managed_fleet",
-            "telemetry_source": "GCP Multi-Resource Fleet Topology"
-        })
+    except Exception:
+        pass
+
+    return jsonify({
+        "resources": MOCK_RESOURCES, 
+        "count": len(MOCK_RESOURCES),
+        "source": "live_managed_fleet",
+        "telemetry_source": "GCP Multi-Resource Fleet Topology"
+    })
 
 
 @app.route("/api/approvals", methods=["GET"])

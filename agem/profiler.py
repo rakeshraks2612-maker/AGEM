@@ -42,9 +42,10 @@ def discover_resources() -> List[Dict[str, Any]]:
             )
             for asset in client.list_assets(request=request, timeout=3.0):
                 resources.append({
-                    "name": asset.name,
-                    "type": asset.asset_type,
-                    "data": dict(asset.resource.data) if asset.resource.data else {},
+                    "name": str(asset.name),
+                    "type": str(asset.asset_type),
+                    "id": str(asset.name).split("/")[-1],
+                    "data": {},
                     "source": "gcp_asset_inventory_api"
                 })
             if resources:
