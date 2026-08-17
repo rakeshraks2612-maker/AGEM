@@ -68,7 +68,7 @@ flowchart LR
     end
 
     subgraph Safety["3. Safety & GitOps"]
-        P5 --> P6["6. AST Validation<br/><code>validator.validate()</code>"]:::guardNode
+        P5 --> P6["6. Safety Validation<br/><code>validator.validate()</code>"]:::guardNode
         P6 --> P7["7. Branch Isolation<br/><code>git_committer.commit()</code>"]:::guardNode
     end
 
@@ -86,7 +86,7 @@ flowchart LR
 3. **Cloud Waste Scoring (`scorer.compute_cws`)**: Calculates the multi-factor CWS index calibrated for GCP sustained-use discounts and idle headroom.
 4. **Patch Synthesis (`patcher.generate`)**: Prompts Gemini 3.5 Flash with telemetry context to synthesize concrete `gcloud` configuration updates and before/after diffs.
 5. **ADK Supervisor Reasoning (`agents.supervisor`)**: Evaluates generated patches against project SLOs and risk vs. dollar savings trade-offs.
-6. **AST Safety Validation (`validator.validate`)**: Parses commands through an AST validator to enforce non-destructive operations (blocks `delete`, `DROP`, `rm -rf`), requires verifiable dollar savings, and validates rollback commands.
+6. **Deterministic Safety Validation (`validator.validate`)**: Parses commands through deterministic lexical & structural validation to enforce non-destructive operations (blocks `delete`, `DROP`, `rm -rf`), requires verifiable dollar savings, and validates rollback commands.
 7. **Git Branch Isolation (`git_committer.commit`)**: Commits patch manifests to timestamped Git branches (`agem/auto-optimize-<resource>-<timestamp>`), keeping the `main` branch protected.
 8. **Execution & State Memory (`executor.py`, `state_manager.py`)**: Runs patches in dry-run or live mode, persisting execution records in Cloud Firestore with a 24-hour cool-off window to prevent re-optimization loops.
 
@@ -126,11 +126,11 @@ agem/
 ### Cloud Waste Score (CWS) Formula
 The CWS score is a weighted index tailored for GCP pricing:
 
-$$\text{CWS} = 0.35 \cdot \text{Cost} + 0.30 \cdot \text{Performance} + 0.20 \cdot \text{Security} + 0.15 \cdot \text{Reliability}$$
+$$\text{CWS} = 0.40 \cdot \text{Cost} + 0.30 \cdot \text{Performance} + 0.15 \cdot \text{Security} + 0.15 \cdot \text{Reliability}$$
 
-- **Cost (35%)**: Evaluates sustained-use discount thresholds and idle instance expenditures.
+- **Cost (40%)**: Evaluates sustained-use discount thresholds and idle instance expenditures.
 - **Performance (30%)**: Quantifies over-provisioned CPU and memory headroom against p99 peaks.
-- **Security (20%)**: Checks for public IP exposures and IAM over-privileging.
+- **Security (15%)**: Checks for public IP exposures and IAM over-privileging.
 - **Reliability (15%)**: Assesses multi-zone redundancy and automated backup schedules.
 
 > **💡 Note on CWS Interpretation:** Lower CWS represents higher efficiency and lower waste ($0.00 = \text{Zero Waste / Optimal Efficiency}$, $1.00 = \text{Maximum Waste / Idle Over-Provisioning}$). AGEM's optimization achieves a **76.9% reduction in CWS waste** ($0.78 \to 0.18$).
