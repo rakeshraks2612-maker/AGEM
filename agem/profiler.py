@@ -23,28 +23,59 @@ PROJECT_ID = "agem-505107"
 
 
 def discover_resources() -> List[Dict[str, Any]]:
+    """Discover active GCP infrastructure via Cloud Asset Inventory with CLI fallback."""
+    resources = []
+    
+    # 1. Attempt Asset Service Client
+    if HAS_GOOGLE_CLOUD and asset_v1:
+        try:
+            client = asset_v1.AssetServiceClient()
+            parent = f"projects/{PROJECT_ID}"
+            request = asset_v1.ListAssetsRequest(
+                parent=parent,
+                asset_types=[
+                    "sqladmin.googleapis.com/Instance",
+                    "run.googleapis.com/Service",
+                    "bigquery.googleapis.com/Dataset",
+                ],
+                content_type=asset_v1.ContentType.RESOURCE,
+            )
+            for asset in client.list_assets(request=request, timeout=3.0):
+                resources.append({
+                    "name": asset.name,
+                    "type": asset.asset_type,
+                    "data": dict(asset.resource.data) if asset.resource.data else {},
+                    "source": "gcp_asset_inventory_api"
+                })
+            if resources:
+                return resources
+        except Exception:
+            pass
+            
+    # 2. Attempt gcloud asset search CLI
     try:
-        client = asset_v1.AssetServiceClient()
-        parent = f"projects/{PROJECT_ID}"
-        request = asset_v1.ListAssetsRequest(
-            parent=parent,
-            asset_types=[
-                "sqladmin.googleapis.com/Instance",
-                "run.googleapis.com/Service",
-                "bigquery.googleapis.com/Dataset",
-            ],
-            content_type=asset_v1.ContentType.RESOURCE,
-        )
-        resources = []
-        for asset in client.list_assets(request=request, timeout=3.0):
-            resources.append({
-                "name": asset.name,
-                "type": asset.asset_type,
-                "data": dict(asset.resource.data) if asset.resource.data else {},
-            })
-        return resources
+        cmd = [
+            "gcloud", "asset", "search-all-resources",
+            f"--scope=projects/{PROJECT_ID}",
+            "--asset-types=sqladmin.googleapis.com/Instance,run.googleapis.com/Service,bigquery.googleapis.com/Dataset",
+            "--format=json"
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=3.0)
+        if res.returncode == 0 and res.stdout.strip():
+            items = json.loads(res.stdout)
+            for item in items:
+                resources.append({
+                    "name": item.get("name", item.get("displayName", "resource")),
+                    "type": item.get("assetType", "gcp.resource"),
+                    "data": item,
+                    "source": "gcp_asset_cli"
+                })
+            if resources:
+                return resources
     except Exception:
-        return []
+        pass
+        
+    return resources
 
 
 def get_cloud_sql_cpu(instance_name: str, days: int = 7) -> float:

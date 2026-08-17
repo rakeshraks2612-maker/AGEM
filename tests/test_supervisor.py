@@ -26,29 +26,44 @@ class TestSupervisor(unittest.TestCase):
             {"id": "agem-db", "type": "Cloud SQL", "name": "agem-db", "metrics": {"cpu": "4%"}}
         ]
         
-        # 1. Discover
+        # 1. Discover (Returns structured dict)
         disc_res = self.sup.agent.tools[0]()
-        self.assertIn("Discovered", disc_res)
+        self.assertIsInstance(disc_res, dict)
+        self.assertEqual(disc_res.get("tool"), "discover_resources")
+        self.assertIn("Discovered", str(disc_res))
         
         # 2. Profile
         prof_res = self.sup.agent.tools[1]()
-        self.assertIn("Profiled", prof_res)
+        self.assertIsInstance(prof_res, dict)
+        self.assertEqual(prof_res.get("tool"), "profile_metrics")
+        self.assertIn("profiled_count", prof_res)
         
         # 3. Score
         score_res = self.sup.agent.tools[2]()
-        self.assertTrue("Computed CWS" in score_res or "CWS" in score_res)
+        self.assertIsInstance(score_res, dict)
+        self.assertEqual(score_res.get("tool"), "score_waste")
+        self.assertIn("CWS", str(score_res))
         
-        # 4. Validate
+        # 4. Patch
+        patch_res = self.sup.agent.tools[3]()
+        self.assertIsInstance(patch_res, dict)
+        self.assertEqual(patch_res.get("tool"), "generate_patch")
+        
+        # 5. Validate
         val_res = self.sup.agent.tools[4]()
-        self.assertTrue("Safety" in val_res or "passed" in val_res.lower())
+        self.assertIsInstance(val_res, dict)
+        self.assertEqual(val_res.get("tool"), "validate_safety")
+        self.assertTrue("passed" in str(val_res).lower() or "safety" in str(val_res).lower())
         
-        # 5. Commit
+        # 6. Commit
         git_res = self.sup.agent.tools[5]()
-        self.assertTrue("Committed" in git_res or "Git" in git_res)
+        self.assertIsInstance(git_res, dict)
+        self.assertEqual(git_res.get("tool"), "commit_git")
         
-        # 6. Execute
+        # 7. Execute
         exec_res = self.sup.agent.tools[6]()
-        self.assertTrue("execution" in exec_res.lower() or "dry-run" in exec_res.lower() or "ready" in exec_res.lower())
+        self.assertIsInstance(exec_res, dict)
+        self.assertEqual(exec_res.get("tool"), "execute_patch")
 
 
 if __name__ == "__main__":
