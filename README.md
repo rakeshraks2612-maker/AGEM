@@ -144,7 +144,8 @@ AGEM is completely autonomous and requires zero manual initiation:
 
 AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 
-- **URL:** [https://agem-server-548675820878.us-central1.run.app/dashboard](https://agem-server-548675820878.us-central1.run.app/dashboard)
+- **Primary Live Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
+- **Regional Live Mirror:** [https://agem-server-548675820878.us-central1.run.app/dashboard](https://agem-server-548675820878.us-central1.run.app/dashboard)
 
 ### Key Capabilities:
 - **System Health Inspector**: Click the header status pill to inspect real-time ADK v2.6.3 runtime metrics, active Gemini models, and copy the raw `/api/health` JSON payload.
@@ -163,7 +164,7 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 > 
 > *Demonstrating autonomous resource discovery, 7-day metric aggregation, Gemini 3.5 Flash reasoning, AST safety validation, isolated Git commits, and live execution/rollback on Google Cloud Platform.*
 
-[![Watch the AGEM Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Walkthrough-red?style=for-the-badge&logo=youtube)](https://agem-server-548675820878.us-central1.run.app/dashboard)
+[![Watch the AGEM Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Walkthrough-red?style=for-the-badge&logo=youtube)](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
 
 *(Video embed placeholder — click above to test the live Cloud Run deployment)*
 
