@@ -8,7 +8,7 @@
 [![GCP](https://img.shields.io/badge/GCP-Cloud%20SQL%20%7C%20Run%20%7C%20BigQuery-orange.svg)](https://cloud.google.com/)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-v2.6.3-green.svg)](https://cloud.google.com/vertex-ai)
 [![Gemini](https://img.shields.io/badge/Gemini-3.5%20Flash-blue.svg)](https://deepmind.google/technologies/gemini/)
-[![Cloud Run](https://img.shields.io/badge/Deployment-Cloud%20Run-blue.svg)](https://agem-server-548675820878.us-central1.run.app/dashboard)
+[![Cloud Run](https://img.shields.io/badge/Deployment-Cloud%20Run-blue.svg)](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
 
 ---
 
@@ -18,8 +18,8 @@
 
 Unlike passive recommendation tools that produce static reports, AGEM operates as a closed loop: it queries live infrastructure via Cloud Asset Inventory, collects 7-day utilization metrics via Cloud Monitoring, computes a multi-factor **Cloud Waste Score (CWS)**, uses Gemini to synthesize non-destructive `gcloud` patches with rollback commands, validates them with AST checks, isolates changes on timestamped Git branches, and records decision state in Firestore to prevent re-optimization loops.
 
-- **Live Web Dashboard:** [https://agem-server-548675820878.us-central1.run.app/dashboard](https://agem-server-548675820878.us-central1.run.app/dashboard)
-- **Live Health Endpoint:** [https://agem-server-548675820878.us-central1.run.app/api/health](https://agem-server-548675820878.us-central1.run.app/api/health)
+- **Live Web Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
+- **Live Health Endpoint:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
 
 ---
 
@@ -144,8 +144,8 @@ AGEM is completely autonomous and requires zero manual initiation:
 
 AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 
-- **Primary Live Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
-- **Regional Live Mirror:** [https://agem-server-548675820878.us-central1.run.app/dashboard](https://agem-server-548675820878.us-central1.run.app/dashboard)
+- **Live Web Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
+- **Live Health Telemetry:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
 
 ### Key Capabilities:
 - **System Health Inspector**: Click the header status pill to inspect real-time ADK v2.6.3 runtime metrics, active Gemini models, and copy the raw `/api/health` JSON payload.
@@ -277,8 +277,8 @@ AGEM/
 - **Agent Framework:** Google ADK (Agent Development Kit) v2.6.3
 - **LLM Engine:** Gemini 3.5 Flash via Vertex AI / Google GenAI SDK
 - **GCP Infrastructure:** Google Cloud Run, Cloud Firestore, Cloud Asset Inventory, Cloud Monitoring, Cloud Build
-- **Live Production URL:** [https://agem-server-548675820878.us-central1.run.app/dashboard](https://agem-server-548675820878.us-central1.run.app/dashboard)
-- **Live Health Endpoint:** [https://agem-server-548675820878.us-central1.run.app/api/health](https://agem-server-548675820878.us-central1.run.app/api/health)
+- **Live Production URL:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
+- **Live Health Endpoint:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
 - **GitHub Repository:** [https://github.com/rakeshraks2612-maker/AGEM](https://github.com/rakeshraks2612-maker/AGEM)
 
 ### Rubric Alignment (Taskmaster Track)
