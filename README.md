@@ -219,7 +219,7 @@ pip install -r requirements.txt
 export GOOGLE_CLOUD_PROJECT="agem-505107"
 export GEMINI_API_KEY="your-gemini-api-key"
 
-# 4. Run automated unit test suite (18 tests, 100% pass)
+# 4. Run automated unit & integration test suite (22 tests, 100% pass)
 python -m unittest discover -s tests -p "test_*.py" -v
 
 # 5. Run CLI autonomous agent loop scan
@@ -245,9 +245,10 @@ AGEM/
 │   ├── profiler.py               # Tool 1 & 2: Asset Inventory & Monitoring connector
 │   ├── scorer.py                 # Tool 3: Cloud Waste Score (CWS) algorithm
 │   ├── patcher.py                # Tool 4: Gemini 3.5 Flash patch generator
-│   ├── validator.py              # Tool 5: AST & safety validation pipeline
+│   ├── validator.py              # Tool 5: Safety & structural validation pipeline
 │   ├── git_committer.py          # Tool 6: Git branch isolation & commit engine
-│   ├── executor.py               # Tool 7: gcloud execution & rollback handler
+│   ├── executor.py               # Tool 7: gcloud execution, rollback & retry handler
+│   ├── context_manager.py        # Context & Memory Layer (multi-turn reasoning & planning)
 │   ├── state_manager.py          # Firestore persistence & deduplication
 │   ├── server.py                 # Production Flask/Cloud Run API Server
 │   ├── agents/                   # Google ADK Agent Modules
@@ -258,12 +259,14 @@ AGEM/
 │       └── dashboard.html        # Embedded web dashboard
 ├── static/
 │   └── dashboard.html            # Production dashboard source
-├── tests/                        # Automated Unit Test Suite (18 tests)
+├── tests/                        # Automated Test Suite (22 unit & integration tests)
 │   ├── test_scorer.py            # CWS formula & edge cases
-│   ├── test_validator.py         # AST safety & non-destructive checks
+│   ├── test_validator.py         # Safety & non-destructive checks
 │   ├── test_patcher.py           # Gemini patch parsing & rollback checks
 │   ├── test_supervisor.py        # Google ADK agent & tool registration
-│   └── test_executor.py          # Dry-run execution & rollback logic
+│   ├── test_executor.py          # Dry-run execution & rollback logic
+│   ├── test_context_manager.py   # Context & memory persistence
+│   └── test_pipeline_integration.py # End-to-end autonomous loop & server API
 ├── main.py                       # CLI agent loop runner
 ├── config/
 │   └── config.yaml               # Agent configuration & thresholds
