@@ -12,7 +12,7 @@ except ImportError:
     FieldFilter = None
     HAS_FIRESTORE = False
 
-PROJECT_ID = "agem-505107"
+PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
 COLLECTION_NAME = "agem_optimization_history"
 
 

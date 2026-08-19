@@ -17,9 +17,7 @@ from agem.patcher import Patcher, Patch
 from agem.validator import Validator, ValidationResult
 from agem.git_committer import GitCommitter, CommitResult
 from agem.executor import Executor, ExecutionResult
-from agem.state_manager import StateManager
-
-PROJECT_ID = "agem-505107"
+PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
 
 
 def discover_resources() -> List[Dict[str, Any]]:
