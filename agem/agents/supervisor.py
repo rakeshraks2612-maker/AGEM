@@ -431,11 +431,11 @@ class AGEMSupervisor:
                 }
         except Exception as e:
             print(f"[AGEM] ADK Runner execution notice: {e}")
-
-        # Proven closed-loop execution
-        res = self.run_autonomous_loop(project_id=project, auto_apply_safe=auto_apply_safe)
-        res["adk_orchestrated"] = True
-        return res
+            # Proven closed-loop execution
+            res = self.run_autonomous_loop(project_id=project, auto_apply_safe=auto_apply_safe)
+            res["adk_orchestrated"] = False
+            res["adk_fallback_reason"] = str(e)
+            return res
 
     def run_cycle(self, project_id: Optional[str] = None, auto_apply_safe: bool = True) -> Dict[str, Any]:
         """Backward-compatible alias for run_autonomous_loop."""
