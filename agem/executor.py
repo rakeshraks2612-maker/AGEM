@@ -1,6 +1,7 @@
 # agem/executor.py
+import os
 import subprocess
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 
 
@@ -111,12 +112,13 @@ class Executor:
             command=command,
         )
 
-    def reprofile_and_validate(self, patch: Any, base_cws: float = 0.78, project_id: str = "agem-505107", simulated_cws_after: float = 0.18) -> Tuple[bool, float, str]:
+    def reprofile_and_validate(self, patch: Any, base_cws: float = 0.78, project_id: Optional[str] = None, simulated_cws_after: float = 0.18) -> Tuple[bool, float, str]:
         """Live closed-loop post-apply verification with automatic regression rollback.
         
         Re-profiles the resource, recalculates post-apply CWS, and if regression is detected
         (opt_cws >= base_cws), automatically executes the inverse rollback command and verifies recovery.
         """
+        proj = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
         resource_name = getattr(patch, "resource_name", patch.get("resource_name", patch.get("id", "resource")) if isinstance(patch, dict) else str(patch))
         resource_type = getattr(patch, "resource_type", patch.get("resource_type", "") if isinstance(patch, dict) else "")
         

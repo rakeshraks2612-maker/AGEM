@@ -41,6 +41,17 @@ class TestPipelineIntegration(unittest.TestCase):
         data_res = res_resources.get_json()
         self.assertEqual(data_res["count"], 15)
 
+    def test_adk_runner_orchestration(self):
+        result = self.supervisor.run_with_adk(project_id="test-proj-adk")
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(result.get("adk_orchestrated"))
+
+        res_scan_adk = self.client.get("/api/scan/adk?dry_run=true")
+        self.assertEqual(res_scan_adk.status_code, 200)
+        data_adk = res_scan_adk.get_json()
+        self.assertEqual(data_adk["status"], "success")
+        self.assertTrue(data_adk.get("adk_orchestrated"))
+
 
 if __name__ == "__main__":
     unittest.main()

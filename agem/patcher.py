@@ -97,6 +97,7 @@ Patch:"""
         metrics = resource.get('metrics', {})
         cpu = metrics.get('cpu', 0)
         
+        proj = os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
         if "sql" in rtype.lower() or "instance" in rtype.lower():
             if float(str(cpu).replace("%", "")) < 5.0 if str(cpu).replace("%", "").replace(".", "").isdigit() else True:
                 return Patch(
@@ -104,9 +105,9 @@ Patch:"""
                     action=f"Downsize idle Cloud SQL {name} from db-n1-standard-2 to db-f1-micro",
                     patch_type="gcloud",
                     before="settings.tier: db-n1-standard-2 (2 vCPU, 7.5GB RAM) — ~3.8% avg CPU",
-                    after=f"gcloud sql instances patch {name} --tier=db-f1-micro --project=agem-505107",
+                    after=f"gcloud sql instances patch {name} --tier=db-f1-micro --project={proj}",
                     estimated_savings="$52.00/month",
-                    rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project=agem-505107",
+                    rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project={proj}",
                 )
             else:
                 return Patch(
@@ -114,9 +115,9 @@ Patch:"""
                     action=f"Rightsize Cloud SQL {name} machine tier to db-n1-standard-1",
                     patch_type="gcloud",
                     before="settings.tier: db-n1-standard-2 — low CPU utilization",
-                    after=f"gcloud sql instances patch {name} --tier=db-n1-standard-1 --project=agem-505107",
+                    after=f"gcloud sql instances patch {name} --tier=db-n1-standard-1 --project={proj}",
                     estimated_savings="$25.00/month",
-                    rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project=agem-505107",
+                    rollback=f"gcloud sql instances patch {name} --tier=db-n1-standard-2 --project={proj}",
                 )
         elif "run" in rtype.lower() or "service" in rtype.lower():
             return Patch(

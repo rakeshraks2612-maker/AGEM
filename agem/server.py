@@ -1832,6 +1832,20 @@ def api_approvals():
         return jsonify({"pending": [], "count": 0, "error": str(e)}), 200
 
 
+@app.route("/api/scan/adk", methods=["GET", "POST"])
+def api_scan_adk():
+    """Execute autonomous loop via Google ADK Runner orchestration."""
+    dry_run = request.args.get("dry_run", "true").lower() == "true"
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
+    try:
+        from agem.agents.supervisor import AGEMSupervisor
+        sup = AGEMSupervisor()
+        result = sup.run_with_adk(project_id=project, auto_apply_safe=(not dry_run))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e), "project": project}), 500
+
+
 @app.route("/api/scan", methods=["GET", "POST"])
 def api_scan():
     if not ADK_LOADED:
@@ -1839,7 +1853,7 @@ def api_scan():
 
     dry_run = request.args.get("dry_run", "true").lower() == "true"
     force = request.args.get("force", "false").lower() == "true"
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "agem-505107")
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", os.environ.get("PROJECT_ID", "agem-505107"))
 
     tracer.record("[SCAN_START]", f"Autonomous cycle initiated (project={project}, dry_run={dry_run})", "ok")
     
