@@ -149,7 +149,7 @@ AGEM is completely autonomous and requires zero manual initiation:
 
 ## Live Web Dashboard
 
-AGEM provides a dark-mode web dashboard served directly from Cloud Run:
+AGEM provides a web dashboard served directly from Cloud Run:
 
 - **Live Web Dashboard:** [https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
 - **Live Health Telemetry:** [https://agem-server-bplbjsjr4a-uc.a.run.app/api/health](https://agem-server-bplbjsjr4a-uc.a.run.app/api/health)
@@ -171,9 +171,9 @@ AGEM provides a dark-mode web dashboard served directly from Cloud Run:
 > 
 > *Demonstrating autonomous resource discovery, 7-day metric aggregation, Gemini 3.5 Flash reasoning, AST safety validation, isolated Git commits, and live execution/rollback on Google Cloud Platform.*
 
-[![Watch the AGEM Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Walkthrough-red?style=for-the-badge&logo=youtube)](https://agem-server-bplbjsjr4a-uc.a.run.app/dashboard)
+[![Watch the AGEM Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Walkthrough-red?style=for-the-badge&logo=youtube)](https://youtu.be/yly96eugOSI)
 
-*(Video embed placeholder — click above to test the live Cloud Run deployment)*
+
 
 ---
 
