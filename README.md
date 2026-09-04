@@ -46,49 +46,113 @@ Measurements collected on GCP project `agem-505107` with Cloud Monitoring 7-day 
 
 ## Architecture & Agent Flow
 
-AGEM uses the **Google Agent Development Kit (ADK)** architecture. The supervisor agent (`AGEMSupervisor`) orchestrates 7 modular Python tools across an 8-stage optimization pipeline:
+AGEM is architected with a decoupled service pattern built for Google Cloud Platform and the **Google Agent Development Kit (ADK) v2.6.3**:
+
+- **`/agem/server.py` & `/static` — Backend API & Web Dashboard (`server.py`, `mock_data.py`, `dashboard.html`)**  
+  Production Flask/Cloud Run web server serving the responsive dark-mode Single Page Application (SPA). Handles user authentication, REST endpoints (`/api/*`), live SSE trace streams, pending approval/rollback actions, and ingests Cloud Scheduler / Cloud Pub/Sub webhook triggers.
+- **`/agem` & `/agem/agents` — Google ADK Agent Worker Runtime (`agents/supervisor.py`, `context_manager.py`, `patcher.py`)**  
+  Autonomous agent runtime hosting the multi-agent graph with Gemini 3.5 Flash. Orchestrates asset discovery, 7-day metric telemetry, multi-factor Cloud Waste Scoring (CWS), deterministic AST safety validation, isolated GitOps branching, and cross-session memory in Cloud Firestore.
 
 ```mermaid
-flowchart LR
-    classDef stepNode fill:#1e293b,stroke:#38bdf8,stroke-width:1.5px,color:#f8fafc;
-    classDef llmNode fill:#2e1065,stroke:#c084fc,stroke-width:1.5px,color:#f8fafc;
-    classDef guardNode fill:#064e3b,stroke:#34d399,stroke-width:1.5px,color:#f8fafc;
-    classDef extNode fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#94a3b8;
+flowchart TB
+    classDef clientNode fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#f8fafc;
+    classDef cloudRunNode fill:#1e1b4b,stroke:#818cf8,stroke-width:1.5px,color:#f8fafc;
+    classDef adkNode fill:#14532d,stroke:#4ade80,stroke-width:1.5px,color:#f8fafc;
+    classDef geminiNode fill:#3b0764,stroke:#c084fc,stroke-width:1.5px,color:#f8fafc;
+    classDef dataNode fill:#1c1917,stroke:#f59e0b,stroke-width:1.5px,color:#f8fafc;
 
-    subgraph Discovery["1. Discovery & Telemetry"]
-        A1[("Cloud Asset Inventory API")]:::extNode --> P1["1. Discover<br/><code>profiler.discover()</code>"]:::stepNode
-        A2[("Cloud Monitoring API")]:::extNode --> P2["2. Profile (7-day)<br/><code>profiler.profile()</code>"]:::stepNode
-        P1 --> P2
+    subgraph Users["👥 Application Users"]
+        U1["DevOps / SRE / FinOps Engineers"]:::clientNode
     end
 
-    subgraph Intelligence["2. Scoring & LLM Reasoning"]
-        P2 --> P3["3. Score CWS<br/><code>scorer.compute_cws()</code>"]:::stepNode
-        P3 --> P4["4. Gemini Patch Gen<br/><code>patcher.generate()</code>"]:::llmNode
-        P4 --> P5["5. ADK Supervisor Reasoning<br/><code>supervisor.agent</code>"]:::llmNode
+    subgraph GCPCloud["☁️ Google Cloud Platform (Cloud Run Runtime)"]
+        subgraph WebTier["🌐 Web Tier & Backend API"]
+            W1["Web App (SPA)<br/><code>static/dashboard.html</code><br/><i>Live Topology, CWS Meters, Diffs</i>"]:::cloudRunNode
+            W2["Backend API (Flask)<br/><code>agem/server.py</code><br/><i>REST, SSE Stream, PubSub Webhook</i>"]:::cloudRunNode
+        end
+
+        subgraph WorkerTier["🤖 Agent Worker (ADK Runtime)"]
+            CS["ADK Context & Session Store<br/><code>context_manager.py</code>"]:::adkNode
+            
+            subgraph AgentGraph["Agents Graph"]
+                AG1["agem_supervisor_agent<br/><b>Root ADK Orchestrator Persona</b><br/><code>agents/supervisor.py</code>"]:::adkNode
+                
+                subgraph CoreAgents["Pipeline Tools & Sub-Agents"]
+                    T1["discovery_agent<br/><code>profiler.discover()</code>"]:::adkNode
+                    T2["telemetry_agent<br/><code>profiler.profile()</code>"]:::adkNode
+                    T3["cws_scorer_agent<br/><code>scorer.compute_cws()</code>"]:::adkNode
+                    T4["patch_synthesizer_agent<br/><code>patcher.generate()</code>"]:::adkNode
+                    T5["safety_validator_agent<br/><code>validator.validate()</code>"]:::adkNode
+                    T6["gitops_isolation_agent<br/><code>git_committer.commit()</code>"]:::adkNode
+                    T7["patch_executor_agent<br/><code>executor.apply()</code>"]:::adkNode
+                end
+
+                subgraph PostScan["Post-Session Analysis"]
+                    P1["billing_reconciler_agent<br/><code>billing.py</code>"]:::adkNode
+                    P2["esg_carbon_calculator_agent<br/><code>server.py / health</code>"]:::adkNode
+                end
+            end
+        end
+
+        subgraph DataTier["💾 Data & GCP Managed Services"]
+            D1[("Cloud Firestore<br/><i>24h Deduplication & History</i>")]:::dataNode
+            D2[("Cloud Asset Inventory<br/><i>Resource Metadata</i>")]:::dataNode
+            D3[("Cloud Monitoring API<br/><i>7-Day Timeseries Metrics</i>")]:::dataNode
+            D4[("Cloud Billing Export<br/><i>BigQuery Cost Datasets</i>")]:::dataNode
+            D5[("Git Repository<br/><i>agem/* Isolation Branches</i>")]:::dataNode
+        end
     end
 
-    subgraph Safety["3. Safety & GitOps"]
-        P5 --> P6["6. Safety Validation<br/><code>validator.validate()</code>"]:::guardNode
-        P6 --> P7["7. Branch Isolation<br/><code>git_committer.commit()</code>"]:::guardNode
+    subgraph GeminiAI["✨ Google AI & Vertex AI"]
+        G1["Google Gemini 3.5 Flash<br/><i>Reasoning & Patch Synthesis</i>"]:::geminiNode
+        G2["Vertex AI ADK Engine<br/><i>Tool Calling & Evaluation</i>"]:::geminiNode
     end
 
-    subgraph Execution["4. Execution & State"]
-        P7 --> P8["8. Execution & Memory<br/><code>executor & state_manager</code>"]:::stepNode
-        P8 --> A3[("Cloud Firestore<br/>(24h Deduplication)")]:::extNode
-        A3 -.->|"Next Scan Cycle"| P1
-    end
+    %% User & Web Interactions
+    U1 <-->|"1. HTTPS / REST / SSE"| W1
+    W1 <-->|"2. API Requests & Live Events"| W2
+    W2 -->|"3. Dispatch Optimization Scan"| AG1
+
+    %% Agent Worker & Context Store
+    AG1 <-->|"Read / Write Context"| CS
+
+    %% Agent Delegation
+    AG1 --> T1
+    AG1 --> T2
+    AG1 --> T3
+    AG1 --> T4
+    AG1 --> T5
+    AG1 --> T6
+    AG1 --> T7
+    AG1 --> P1
+    AG1 --> P2
+
+    %% Agent to Gemini Inference
+    T4 <-->|"4. Synthesize Patches & Rollbacks"| G1
+    AG1 <-->|"5. Multi-Turn ADK Reasoning"| G2
+
+    %% Agent to GCP Data & Services
+    T1 <-->|"Discover Topology"| D2
+    T2 <-->|"Query 7d CPU/RAM/IO"| D3
+    T6 -->|"Commit Manifest"| D5
+    T7 <-->|"Live / Dry-Run Patch"| D1
+    P1 <-->|"Reconcile Invoices"| D4
+    CS <-->|"Session Memory"| D1
+
+    %% Live Feedback Loop
+    D1 -.->|"6. Live UI Updates & Trace Push"| W2
 ```
 
-### Pipeline Lifecycle
+### End-to-End Agent Lifecycle Flow
 
-1. **Asset Discovery (`profiler.discover`)**: Queries Cloud Asset Inventory API for Cloud SQL instances, Cloud Run services, and BigQuery datasets. Uses in-memory caching to avoid redundant API polling.
-2. **Telemetry Profiling (`profiler.profile`)**: Pulls 7-day timeseries metrics (CPU utilization, memory usage, request counts, disk I/O, and cold starts) via Cloud Monitoring API.
-3. **Cloud Waste Scoring (`scorer.compute_cws`)**: Calculates the multi-factor CWS index calibrated for GCP sustained-use discounts and idle headroom.
-4. **Patch Synthesis (`patcher.generate`)**: Prompts Gemini 3.5 Flash with telemetry context to synthesize concrete `gcloud` configuration updates and before/after diffs.
-5. **ADK Supervisor Reasoning (`agents.supervisor`)**: Evaluates generated patches against project SLOs and risk vs. dollar savings trade-offs.
-6. **Deterministic Safety Validation (`validator.validate`)**: Parses commands through deterministic lexical & structural validation to enforce non-destructive operations (blocks `delete`, `DROP`, `rm -rf`), requires verifiable dollar savings, and validates rollback commands.
-7. **Git Branch Isolation (`git_committer.commit`)**: Commits patch manifests to timestamped Git branches (`agem/auto-optimize-<resource>-<timestamp>`), keeping the `main` branch protected.
-8. **Execution & State Memory (`executor.py`, `state_manager.py`)**: Runs patches in dry-run or live mode, persisting execution records in Cloud Firestore with a 24-hour cool-off window to prevent re-optimization loops.
+1. **User & Scheduler Initiation**: Application users interact with the Web App dashboard, or Cloud Scheduler publishes a cron trigger to Cloud Pub/Sub (`agem-scan-trigger`) every 6 hours, invoking Backend API `/pubsub`.
+2. **Scan Dispatch & Context Initialization**: Backend API (`server.py`) initializes `ADKSessionStore` / `ContextManager` and dispatches the root `agem_supervisor_agent` into the optimization loop.
+3. **Fleet Discovery & Telemetry Gathering**: The `discovery_agent` queries Cloud Asset Inventory for active Cloud SQL, Cloud Run, and BigQuery resources. The `telemetry_agent` pulls 7-day p99/average timeseries metrics (CPU, RAM, disk I/O, cold starts) from Cloud Monitoring API.
+4. **Cloud Waste Scoring (CWS)**: The `cws_scorer_agent` computes multi-factor CWS ratings ($0.00$ to $1.00$) factoring in sustained-use discount thresholds, over-provisioning headroom, and idle waste.
+5. **Gemini 3.5 Flash Patch Synthesis**: For identified waste targets, `patch_synthesizer_agent` prompts Gemini 3.5 Flash with structured telemetry context to generate non-destructive `gcloud` patches, exact diffs, and deterministic rollback commands.
+6. **Deterministic AST Safety & Structural Validation**: `safety_validator_agent` inspects synthesized commands through lexical AST parsing—blocking destructive verbs (`delete`, `DROP`, `rm -rf`), enforcing non-zero verified savings, and validating rollback safety.
+7. **GitOps Branch Isolation**: `gitops_isolation_agent` creates isolated, timestamped Git branches (`agem/auto-optimize-<resource>-<timestamp>`), committing declarative patch manifests and preserving `main` branch integrity.
+8. **Execution, Memory Persistence & UI Sync**: `patch_executor_agent` stages patches in the approval queue or executes them in dry-run/live mode, recording audit logs in Cloud Firestore with 24-hour cool-off deduplication. `server.py` pushes real-time SSE trace logs and updated topology meters directly to the browser UI.
 
 ---
 
