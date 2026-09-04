@@ -1,0 +1,391 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 820" width="100%" height="100%" style="background:#0b0f19; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="gcpCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0b0f19" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="agentGraphGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#022c22" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="geminiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#1e1b4b" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Filters for soft shadow -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+
+    <!-- Markers for arrows -->
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1,1 L7,4 L1,7 Z" fill="#38bdf8" />
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1,1 L7,4 L1,7 Z" fill="#34d399" />
+    </marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1,1 L7,4 L1,7 Z" fill="#c084fc" />
+    </marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1,1 L7,4 L1,7 Z" fill="#fbbf24" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1320" height="820" fill="url(#bgGrad)"/>
+  
+  <!-- Grid pattern overlay -->
+  <g opacity="0.05">
+    <path d="M 0,0 L 1320,0 M 0,40 L 1320,40 M 0,80 L 1320,80 M 0,120 L 1320,120 M 0,160 L 1320,160 M 0,200 L 1320,200 M 0,240 L 1320,240 M 0,280 L 1320,280 M 0,320 L 1320,320 M 0,360 L 1320,360 M 0,400 L 1320,400 M 0,440 L 1320,440 M 0,480 L 1320,480 M 0,520 L 1320,520 M 0,560 L 1320,560 M 0,600 L 1320,600 M 0,640 L 1320,640 M 0,680 L 1320,680 M 0,720 L 1320,720 M 0,760 L 1320,760 M 0,800 L 1320,800" stroke="#ffffff" stroke-width="1"/>
+    <path d="M 0,0 L 0,820 M 40,0 L 40,820 M 80,0 L 80,820 M 120,0 L 120,820 M 160,0 L 160,820 M 200,0 L 200,820 M 240,0 L 240,820 M 280,0 L 280,820 M 320,0 L 320,820 M 360,0 L 360,820 M 400,0 L 400,820 M 440,0 L 440,820 M 480,0 L 480,820 M 520,0 L 520,820 M 560,0 L 560,820 M 600,0 L 600,820 M 640,0 L 640,820 M 680,0 L 680,820 M 720,0 L 720,820 M 760,0 L 760,820 M 800,0 L 800,820 M 840,0 L 840,820 M 880,0 L 880,820 M 920,0 L 920,820 M 960,0 L 960,820 M 1000,0 L 1000,820 M 1040,0 L 1040,820 M 1080,0 L 1080,820 M 1120,0 L 1120,820 M 1160,0 L 1160,820 M 1200,0 L 1200,820 M 1240,0 L 1240,820 M 1280,0 L 1280,820" stroke="#ffffff" stroke-width="1"/>
+  </g>
+
+  <!-- ==================== OUTER BOX: GOOGLE CLOUD ==================== -->
+  <rect x="300" y="25" width="770" height="770" rx="16" fill="url(#gcpCardGrad)" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6,4" filter="url(#dropShadow)" opacity="0.95"/>
+  <g transform="translate(320, 52)">
+    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#4285F4" transform="scale(0.85)"/>
+    <text x="26" y="14" fill="#93c5fd" font-size="16" font-weight="700" letter-spacing="0.5">Google Cloud Platform</text>
+  </g>
+
+  <!-- ==================== LEFT: USERS & TRIGGERS ==================== -->
+  <!-- Application Users -->
+  <g transform="translate(40, 360)" filter="url(#dropShadow)">
+    <rect width="180" height="95" rx="12" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <circle cx="90" cy="32" r="14" fill="#334155" stroke="#38bdf8" stroke-width="1.5"/>
+    <path d="M85 30 A5 5 0 1 1 95 30 A5 5 0 1 1 85 30 M80 42 C80 37 84 36 90 36 C96 36 100 37 100 42" stroke="#38bdf8" stroke-width="1.5" fill="none"/>
+    <text x="90" y="62" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Application Users</text>
+    <text x="90" y="78" fill="#94a3b8" font-size="10" text-anchor="middle">DevOps / SRE / FinOps</text>
+  </g>
+
+  <!-- Cloud Scheduler & PubSub Trigger (Top Left) -->
+  <g transform="translate(40, 140)" filter="url(#dropShadow)">
+    <rect width="180" height="95" rx="12" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="90" y="32" fill="#fbbf24" font-size="13" font-weight="700" text-anchor="middle">⏰ Cloud Scheduler</text>
+    <text x="90" y="48" fill="#94a3b8" font-size="10" text-anchor="middle">Cron: 0 */6 * * * (6h)</text>
+    <rect x="18" y="58" width="144" height="24" rx="6" fill="#0f172a" stroke="#d97706" stroke-width="1"/>
+    <text x="90" y="74" fill="#fde68a" font-size="10" font-weight="600" text-anchor="middle">Pub/Sub: agem-scan-trigger</text>
+  </g>
+
+  <!-- Web App (SPA Dashboard) -->
+  <g transform="translate(40, 520)" filter="url(#dropShadow)">
+    <rect width="180" height="110" rx="12" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="15" y="15" width="150" height="22" rx="4" fill="#0f172a"/>
+    <circle cx="27" cy="26" r="3" fill="#ef4444"/>
+    <circle cx="37" cy="26" r="3" fill="#eab308"/>
+    <circle cx="47" cy="26" r="3" fill="#22c55e"/>
+    <text x="60" y="29" fill="#94a3b8" font-size="9" font-family="monospace">agem/dashboard</text>
+    <text x="90" y="60" fill="#f8fafc" font-size="13" font-weight="700" text-anchor="middle">Web App</text>
+    <text x="90" y="76" fill="#38bdf8" font-size="10" font-weight="500" text-anchor="middle">(Dark-Mode SPA)</text>
+    <text x="90" y="93" fill="#94a3b8" font-size="9" text-anchor="middle">Topology, CWS, Approvals</text>
+  </g>
+
+  <!-- ==================== CLOUD RUN / BACKEND API ==================== -->
+  <g transform="translate(325, 90)" filter="url(#dropShadow)">
+    <rect width="170" height="340" rx="12" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5"/>
+    <g transform="translate(15, 20)">
+      <path d="M4 4h8v8H4z M12 12h8v8h-8z" fill="#818cf8" opacity="0.8"/>
+      <text x="24" y="14" fill="#a5b4fc" font-size="12" font-weight="700">Cloud Run</text>
+    </g>
+    
+    <rect x="12" y="55" width="146" height="265" rx="8" fill="#0f172a" stroke="#6366f1" stroke-width="1.2"/>
+    <text x="85" y="85" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">Backend API</text>
+    <text x="85" y="103" fill="#a5b4fc" font-size="11" font-weight="500" text-anchor="middle">(Flask / WSGI)</text>
+    
+    <path d="M25 118 L145 118" stroke="#334155" stroke-width="1"/>
+    
+    <text x="22" y="140" fill="#cbd5e1" font-size="10" font-weight="600">• Auth &amp; Sessions</text>
+    <text x="22" y="162" fill="#cbd5e1" font-size="10" font-weight="600">• REST API (/api/*)</text>
+    <text x="22" y="184" fill="#cbd5e1" font-size="10" font-weight="600">• SSE Trace Stream</text>
+    <text x="22" y="206" fill="#cbd5e1" font-size="10" font-weight="600">• Pub/Sub Webhook</text>
+    <text x="22" y="228" fill="#cbd5e1" font-size="10" font-weight="600">• Approval Manager</text>
+    <text x="22" y="250" fill="#cbd5e1" font-size="10" font-weight="600">• Rollback Engine</text>
+    
+    <rect x="20" y="270" width="130" height="36" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+    <text x="85" y="285" fill="#38bdf8" font-size="9" font-weight="700" text-anchor="middle">Live Endpoint</text>
+    <text x="85" y="298" fill="#94a3b8" font-size="8" text-anchor="middle">/dashboard &amp; /api</text>
+  </g>
+
+  <!-- ==================== AGENT WORKER (ADK RUNTIME) ==================== -->
+  <g transform="translate(515, 90)" filter="url(#dropShadow)">
+    <rect width="535" height="490" rx="14" fill="#031f18" stroke="#10b981" stroke-width="1.5"/>
+    
+    <!-- Worker Header -->
+    <g transform="translate(18, 22)">
+      <circle cx="6" cy="6" r="4" fill="#10b981"/>
+      <text x="18" y="10" fill="#6ee7b7" font-size="14" font-weight="700">Agent Worker (Google ADK v2.6.3 Runtime)</text>
+    </g>
+
+    <!-- ADK Session Store (Top Right Inside Worker) -->
+    <g transform="translate(325, 38)">
+      <rect width="190" height="50" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+      <text x="95" y="22" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">ADK Session Store</text>
+      <text x="95" y="38" fill="#a7f3d0" font-size="9" text-anchor="middle">(ContextManager / Memory)</text>
+    </g>
+
+    <!-- AGENTS GRAPH CONTAINER -->
+    <g transform="translate(18, 98)">
+      <rect width="500" height="372" rx="12" fill="url(#agentGraphGrad)" stroke="#059669" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#34d399" font-size="12" font-weight="700" letter-spacing="0.5">AGENTS GRAPH</text>
+
+      <!-- ROOT PERSONA: agem_supervisor_agent -->
+      <g transform="translate(125, 36)" filter="url(#dropShadow)">
+        <rect width="250" height="58" rx="10" fill="#047857" stroke="#6ee7b7" stroke-width="1.5"/>
+        <text x="125" y="24" fill="#ffffff" font-size="13" font-weight="800" text-anchor="middle">agem_supervisor_agent</text>
+        <text x="125" y="42" fill="#d1fae5" font-size="10" font-weight="600" text-anchor="middle">Root Orchestrator Persona (ADK)</text>
+      </g>
+
+      <!-- Delegation Bracket / Connector -->
+      <text x="250" y="112" fill="#6ee7b7" font-size="9" font-weight="700" text-anchor="middle">▼ DELEGATION &amp; TOOL CALLING</text>
+      <path d="M 250,94 L 250,118 M 38,118 L 462,118 M 38,118 L 38,130 M 108,118 L 108,130 M 178,118 L 178,130 M 250,118 L 250,130 M 322,118 L 322,130 M 392,118 L 392,130 M 462,118 L 462,130" stroke="#34d399" stroke-width="1.2" fill="none"/>
+
+      <!-- 7 Modular Sub-Agents (Horizontal Grid) -->
+      <!-- 1. Discovery -->
+      <g transform="translate(10, 132)">
+        <rect width="64" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="32" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">1. Discovery</text>
+        <text x="32" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Agent</text>
+        <path d="M 6,40 L 58,40" stroke="#047857" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">Asset</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">Inventory</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">Catalog</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="32" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">discover()</text>
+      </g>
+
+      <!-- 2. Telemetry -->
+      <g transform="translate(80, 132)">
+        <rect width="64" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="32" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">2. Telemetry</text>
+        <text x="32" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Agent</text>
+        <path d="M 6,40 L 58,40" stroke="#047857" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">7-Day CPU</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">RAM, I/O</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">p99 Peaks</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="32" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">profile()</text>
+      </g>
+
+      <!-- 3. CWS Scorer -->
+      <g transform="translate(150, 132)">
+        <rect width="64" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="32" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">3. Scorer</text>
+        <text x="32" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Agent</text>
+        <path d="M 6,40 L 58,40" stroke="#047857" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">CWS Index</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">0.0 - 1.0</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">Formula</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="32" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">score()</text>
+      </g>
+
+      <!-- 4. Gemini Patcher -->
+      <g transform="translate(220, 132)">
+        <rect width="64" height="110" rx="6" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+        <text x="32" y="20" fill="#e9d5ff" font-size="9" font-weight="700" text-anchor="middle">4. Patcher</text>
+        <text x="32" y="32" fill="#c084fc" font-size="8" text-anchor="middle">Gemini LLM</text>
+        <path d="M 6,40 L 58,40" stroke="#581c87" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">gcloud Diffs</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">Rollback</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">Synthesis</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#1e1b4b"/>
+        <text x="32" y="100" fill="#c084fc" font-size="7" font-family="monospace" text-anchor="middle">generate()</text>
+      </g>
+
+      <!-- 5. Safety Validator -->
+      <g transform="translate(290, 132)">
+        <rect width="64" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="32" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">5. Safety</text>
+        <text x="32" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Validator</text>
+        <path d="M 6,40 L 58,40" stroke="#047857" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">AST Guard</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">No Delete</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">ROI Check</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="32" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">validate()</text>
+      </g>
+
+      <!-- 6. GitOps Committer -->
+      <g transform="translate(360, 132)">
+        <rect width="64" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="32" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">6. GitOps</text>
+        <text x="32" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Committer</text>
+        <path d="M 6,40 L 58,40" stroke="#047857" stroke-width="1"/>
+        <text x="32" y="56" fill="#ffffff" font-size="8" text-anchor="middle">Isolated</text>
+        <text x="32" y="68" fill="#ffffff" font-size="8" text-anchor="middle">Branches</text>
+        <text x="32" y="80" fill="#ffffff" font-size="8" text-anchor="middle">Manifests</text>
+        <rect x="6" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="32" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">commit()</text>
+      </g>
+
+      <!-- 7. Executor -->
+      <g transform="translate(430, 132)">
+        <rect width="60" height="110" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="30" y="20" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">7. Exec</text>
+        <text x="30" y="32" fill="#6ee7b7" font-size="8" text-anchor="middle">Agent</text>
+        <path d="M 6,40 L 54,40" stroke="#047857" stroke-width="1"/>
+        <text x="30" y="56" fill="#ffffff" font-size="8" text-anchor="middle">Live / Dry</text>
+        <text x="30" y="68" fill="#ffffff" font-size="8" text-anchor="middle">Rollback</text>
+        <text x="30" y="80" fill="#ffffff" font-size="8" text-anchor="middle">Queue</text>
+        <rect x="4" y="90" width="52" height="14" rx="3" fill="#022c22"/>
+        <text x="30" y="100" fill="#34d399" font-size="7" font-family="monospace" text-anchor="middle">apply()</text>
+      </g>
+
+      <!-- POST SESSION CONTAINER -->
+      <g transform="translate(10, 258)">
+        <rect width="480" height="100" rx="8" fill="#022c22" stroke="#047857" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="18" y="20" fill="#6ee7b7" font-size="10" font-weight="700">POST-SCAN VERIFICATION &amp; RECONCILIATION</text>
+        
+        <!-- Post 1 -->
+        <g transform="translate(40, 32)">
+          <rect width="180" height="54" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+          <text x="90" y="22" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">billing_reconciler_agent</text>
+          <text x="90" y="40" fill="#a7f3d0" font-size="9" text-anchor="middle">BigQuery Invoices vs Realized</text>
+        </g>
+
+        <!-- Post 2 -->
+        <g transform="translate(260, 32)">
+          <rect width="180" height="54" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+          <text x="90" y="22" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">esg_carbon_agent</text>
+          <text x="90" y="40" fill="#a7f3d0" font-size="9" text-anchor="middle">CO₂ Offsets &amp; Fleet Efficiency</text>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== RIGHT: GEMINI APIS ==================== -->
+  <g transform="translate(1095, 90)" filter="url(#dropShadow)">
+    <rect width="190" height="340" rx="14" fill="url(#geminiGrad)" stroke="#c084fc" stroke-width="1.5"/>
+    
+    <g transform="translate(18, 24)">
+      <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#c084fc"/>
+      <text x="30" y="16" fill="#f3e8ff" font-size="14" font-weight="700">Gemini APIs</text>
+    </g>
+
+    <!-- Gemini 3.5 Flash Card -->
+    <g transform="translate(15, 65)">
+      <rect width="160" height="110" rx="10" fill="#1e1b4b" stroke="#a855f7" stroke-width="1.2"/>
+      <circle cx="28" cy="28" r="8" fill="#9333ea"/>
+      <text x="44" y="32" fill="#ffffff" font-size="12" font-weight="700">Google AI</text>
+      <text x="80" y="58" fill="#e9d5ff" font-size="12" font-weight="800" text-anchor="middle">Gemini 3.5 Flash</text>
+      <path d="M 15,70 L 145,70" stroke="#4c1d95" stroke-width="1"/>
+      <text x="80" y="86" fill="#c4b5fd" font-size="9" text-anchor="middle">Autonomous Reasoning &amp;</text>
+      <text x="80" y="98" fill="#c4b5fd" font-size="9" text-anchor="middle">Deterministic Patch Synthesis</text>
+    </g>
+
+    <!-- Vertex AI Card -->
+    <g transform="translate(15, 195)">
+      <rect width="160" height="120" rx="10" fill="#1e1b4b" stroke="#a855f7" stroke-width="1.2"/>
+      <circle cx="28" cy="28" r="8" fill="#3b82f6"/>
+      <text x="44" y="32" fill="#ffffff" font-size="12" font-weight="700">Vertex AI</text>
+      <text x="80" y="58" fill="#93c5fd" font-size="12" font-weight="800" text-anchor="middle">ADK Runtime</text>
+      <path d="M 15,70 L 145,70" stroke="#1e3a8a" stroke-width="1"/>
+      <text x="80" y="86" fill="#93c5fd" font-size="9" text-anchor="middle">Multi-Turn Tool Calling</text>
+      <text x="80" y="98" fill="#93c5fd" font-size="9" text-anchor="middle">Session Memory Engine</text>
+      <text x="80" y="110" fill="#93c5fd" font-size="9" text-anchor="middle">Model Evaluation API</text>
+    </g>
+  </g>
+
+  <!-- ==================== BOTTOM: DATA & GCP MANAGED SERVICES ==================== -->
+  <g transform="translate(325, 600)" filter="url(#dropShadow)">
+    <rect width="725" height="175" rx="14" fill="#1c1917" stroke="#f59e0b" stroke-width="1.5"/>
+    <g transform="translate(20, 22)">
+      <path d="M4 6h16v3H4z M4 11h16v3H4z M4 16h16v3H4z" fill="#fbbf24"/>
+      <text x="26" y="14" fill="#fef3c7" font-size="13" font-weight="700" letter-spacing="0.5">Data &amp; GCP Managed Services</text>
+    </g>
+
+    <!-- Data Items Grid -->
+    <g transform="translate(20, 48)">
+      <!-- Firestore -->
+      <g transform="translate(0, 0)">
+        <rect width="155" height="100" rx="8" fill="#292524" stroke="#d97706" stroke-width="1"/>
+        <text x="77" y="26" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">Cloud Firestore</text>
+        <text x="77" y="42" fill="#94a3b8" font-size="9" text-anchor="middle">(Managed NoSQL DB)</text>
+        <path d="M 10,52 L 145,52" stroke="#44403c" stroke-width="1"/>
+        <text x="77" y="70" fill="#e2e8f0" font-size="9" text-anchor="middle">• 24h Deduplication</text>
+        <text x="77" y="85" fill="#e2e8f0" font-size="9" text-anchor="middle">• Historical Audits</text>
+      </g>
+
+      <!-- Asset Inventory -->
+      <g transform="translate(170, 0)">
+        <rect width="165" height="100" rx="8" fill="#292524" stroke="#d97706" stroke-width="1"/>
+        <text x="82" y="26" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">Asset Inventory</text>
+        <text x="82" y="42" fill="#94a3b8" font-size="9" text-anchor="middle">(GCP Resources API)</text>
+        <path d="M 10,52 L 155,52" stroke="#44403c" stroke-width="1"/>
+        <text x="82" y="70" fill="#e2e8f0" font-size="9" text-anchor="middle">• Cloud SQL Instances</text>
+        <text x="82" y="85" fill="#e2e8f0" font-size="9" text-anchor="middle">• Cloud Run &amp; BigQuery</text>
+      </g>
+
+      <!-- Cloud Monitoring -->
+      <g transform="translate(350, 0)">
+        <rect width="165" height="100" rx="8" fill="#292524" stroke="#d97706" stroke-width="1"/>
+        <text x="82" y="26" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">Cloud Monitoring</text>
+        <text x="82" y="42" fill="#94a3b8" font-size="9" text-anchor="middle">(Telemetry API)</text>
+        <path d="M 10,52 L 155,52" stroke="#44403c" stroke-width="1"/>
+        <text x="82" y="70" fill="#e2e8f0" font-size="9" text-anchor="middle">• 7-Day Timeseries</text>
+        <text x="82" y="85" fill="#e2e8f0" font-size="9" text-anchor="middle">• CPU/RAM/IO Headroom</text>
+      </g>
+
+      <!-- Cloud Billing / Git -->
+      <g transform="translate(530, 0)">
+        <rect width="155" height="100" rx="8" fill="#292524" stroke="#d97706" stroke-width="1"/>
+        <text x="77" y="26" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">Billing &amp; Git</text>
+        <text x="77" y="42" fill="#94a3b8" font-size="9" text-anchor="middle">(Exports &amp; Repos)</text>
+        <path d="M 10,52 L 145,52" stroke="#44403c" stroke-width="1"/>
+        <text x="77" y="70" fill="#e2e8f0" font-size="9" text-anchor="middle">• BigQuery Invoices</text>
+        <text x="77" y="85" fill="#e2e8f0" font-size="9" text-anchor="middle">• GitOps agem/* Branches</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== FLOW CONNECTIONS & NUMBERED BADGES ==================== -->
+  
+  <!-- Flow 1: Users <-> Web App -->
+  <path d="M 130,455 L 130,520" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)" stroke-dasharray="4,3"/>
+  <circle cx="130" cy="487" r="11" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="130" y="491" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">1</text>
+
+  <!-- Flow 2: Web App <-> Backend API -->
+  <path d="M 220,575 L 325,350" stroke="#818cf8" stroke-width="2" marker-end="url(#arrowBlue)" stroke-dasharray="4,3"/>
+  <text x="270" y="440" fill="#a5b4fc" font-size="9" font-weight="600" text-anchor="middle">HTTPS / REST / SSE</text>
+  <circle cx="265" cy="460" r="11" fill="#4f46e5" stroke="#818cf8" stroke-width="1.5"/>
+  <text x="265" y="464" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">2</text>
+
+  <!-- Flow 3: Scheduler -> Backend API -->
+  <path d="M 220,187 L 325,187" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <circle cx="272" cy="187" r="11" fill="#d97706" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="272" y="191" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">3</text>
+
+  <!-- Flow 4: Backend API -> Agent Worker -->
+  <path d="M 495,210 L 515,210" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <circle cx="505" cy="210" r="11" fill="#059669" stroke="#34d399" stroke-width="1.5"/>
+  <text x="505" y="214" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">4</text>
+
+  <!-- Flow 5: Agent Worker <-> Gemini 3.5 Flash -->
+  <path d="M 1050,230 L 1095,230" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)" marker-start="url(#arrowPurple)"/>
+  <circle cx="1072" cy="230" r="11" fill="#7e22ce" stroke="#c084fc" stroke-width="1.5"/>
+  <text x="1072" y="234" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">5</text>
+
+  <!-- Flow 6: Agent Worker <-> Gemini / Vertex -->
+  <path d="M 1050,330 L 1095,330" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)" marker-start="url(#arrowPurple)"/>
+  <circle cx="1072" cy="330" r="11" fill="#7e22ce" stroke="#c084fc" stroke-width="1.5"/>
+  <text x="1072" y="334" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">6</text>
+
+  <!-- Flow 7: Agent Worker <-> Data & APIs -->
+  <path d="M 780,580 L 780,600" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrowAmber)" marker-start="url(#arrowAmber)"/>
+  <circle cx="780" cy="590" r="11" fill="#d97706" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="780" y="594" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">7</text>
+
+  <!-- Flow 8: Firestore -> Live UI Updates to Backend API -->
+  <path d="M 400,600 L 400,430" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)" stroke-dasharray="4,3"/>
+  <text x="355" y="530" fill="#38bdf8" font-size="9" font-weight="600" text-anchor="middle">Live UI Sync</text>
+  <circle cx="400" cy="515" r="11" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="400" y="519" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">8</text>
+
+</svg>

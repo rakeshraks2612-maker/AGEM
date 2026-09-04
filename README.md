@@ -53,11 +53,18 @@ AGEM is architected with a decoupled service pattern built for Google Cloud Plat
 - **`/agem` & `/agem/agents` — Google ADK Agent Worker Runtime (`agents/supervisor.py`, `context_manager.py`, `patcher.py`)**  
   Autonomous agent runtime hosting the multi-agent graph with Gemini 3.5 Flash. Orchestrates asset discovery, 7-day metric telemetry, multi-factor Cloud Waste Scoring (CWS), deterministic AST safety validation, isolated GitOps branching, and cross-session memory in Cloud Firestore.
 
+<p align="center">
+  <img src="docs/system-architecture.svg" alt="AGEM System Architecture and Agent Flow" width="100%" />
+</p>
+
+<details>
+<summary><b>📐 Click to Expand Raw Mermaid Architecture Diagram</b></summary>
+
 ```mermaid
 flowchart TB
     classDef clientNode fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#f8fafc;
     classDef cloudRunNode fill:#1e1b4b,stroke:#818cf8,stroke-width:1.5px,color:#f8fafc;
-    classDef adkNode fill:#14532d,stroke:#4ade80,stroke-width:1.5px,color:#f8fafc;
+    classDef adkNode fill:#064e3b,stroke:#34d399,stroke-width:1.5px,color:#f8fafc;
     classDef geminiNode fill:#3b0764,stroke:#c084fc,stroke-width:1.5px,color:#f8fafc;
     classDef dataNode fill:#1c1917,stroke:#f59e0b,stroke-width:1.5px,color:#f8fafc;
 
@@ -67,15 +74,15 @@ flowchart TB
 
     subgraph GCPCloud["☁️ Google Cloud Platform (Cloud Run Runtime)"]
         subgraph WebTier["🌐 Web Tier & Backend API"]
-            W1["Web App (SPA)<br/><code>static/dashboard.html</code><br/><i>Live Topology, CWS Meters, Diffs</i>"]:::cloudRunNode
-            W2["Backend API (Flask)<br/><code>agem/server.py</code><br/><i>REST, SSE Stream, PubSub Webhook</i>"]:::cloudRunNode
+            W1["Web App (SPA)<br/><code>static/dashboard.html</code>"]:::cloudRunNode
+            W2["Backend API (Flask)<br/><code>agem/server.py</code>"]:::cloudRunNode
         end
 
         subgraph WorkerTier["🤖 Agent Worker (ADK Runtime)"]
-            CS["ADK Context & Session Store<br/><code>context_manager.py</code>"]:::adkNode
+            CS["ADK Session Store<br/><code>context_manager.py</code>"]:::adkNode
             
             subgraph AgentGraph["Agents Graph"]
-                AG1["agem_supervisor_agent<br/><b>Root ADK Orchestrator Persona</b><br/><code>agents/supervisor.py</code>"]:::adkNode
+                AG1["agem_supervisor_agent<br/><b>Root ADK Orchestrator Persona</b>"]:::adkNode
                 
                 subgraph CoreAgents["Pipeline Tools & Sub-Agents"]
                     T1["discovery_agent<br/><code>profiler.discover()</code>"]:::adkNode
@@ -89,17 +96,17 @@ flowchart TB
 
                 subgraph PostScan["Post-Session Analysis"]
                     P1["billing_reconciler_agent<br/><code>billing.py</code>"]:::adkNode
-                    P2["esg_carbon_calculator_agent<br/><code>server.py / health</code>"]:::adkNode
+                    P2["esg_carbon_agent<br/><code>server.py / health</code>"]:::adkNode
                 end
             end
         end
 
         subgraph DataTier["💾 Data & GCP Managed Services"]
             D1[("Cloud Firestore<br/><i>24h Deduplication & History</i>")]:::dataNode
-            D2[("Cloud Asset Inventory<br/><i>Resource Metadata</i>")]:::dataNode
-            D3[("Cloud Monitoring API<br/><i>7-Day Timeseries Metrics</i>")]:::dataNode
-            D4[("Cloud Billing Export<br/><i>BigQuery Cost Datasets</i>")]:::dataNode
-            D5[("Git Repository<br/><i>agem/* Isolation Branches</i>")]:::dataNode
+            D2[("Cloud Asset Inventory")]:::dataNode
+            D3[("Cloud Monitoring API")]:::dataNode
+            D4[("Cloud Billing Export (BQ)")]:::dataNode
+            D5[("Git Repository (agem/*)")]:::dataNode
         end
     end
 
@@ -128,12 +135,12 @@ flowchart TB
     AG1 --> P2
 
     %% Agent to Gemini Inference
-    T4 <-->|"4. Synthesize Patches & Rollbacks"| G1
+    T4 <-->|"4. Synthesize Patches"| G1
     AG1 <-->|"5. Multi-Turn ADK Reasoning"| G2
 
     %% Agent to GCP Data & Services
     T1 <-->|"Discover Topology"| D2
-    T2 <-->|"Query 7d CPU/RAM/IO"| D3
+    T2 <-->|"Query 7d Telemetry"| D3
     T6 -->|"Commit Manifest"| D5
     T7 <-->|"Live / Dry-Run Patch"| D1
     P1 <-->|"Reconcile Invoices"| D4
@@ -142,6 +149,7 @@ flowchart TB
     %% Live Feedback Loop
     D1 -.->|"6. Live UI Updates & Trace Push"| W2
 ```
+</details>
 
 ### End-to-End Agent Lifecycle Flow
 
